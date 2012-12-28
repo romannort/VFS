@@ -6,22 +6,72 @@
 
 #include "INode.h"
 
-void WriteToFS(std::stringstream& str, unsigned int cluster_size, unsigned long offset)
+unsigned long WriteInode(Inode& inode, unsigned long inode_offset, std::fstream& file);
+
+
+std::vector<unsigned long> WriteToFS(std::stringstream& str, unsigned long offset)
 {
+
+
 	std::fstream FSFile("testfile.bin", std::fstream::in | 
 										std::fstream::out | 
 										std::fstream::binary);
 
+	SuperBlock superBlock;
+	FSFile.read(reinterpret_cast<char*>(&superBlock), sizeof(SuperBlock));
 	FSFile.seekp(offset);
 
-	char *buffer = new char[cluster_size];
+	char *buffer = new char[superBlock.CLUSTER_SIZE];
+	std::vector<unsigned long> inode_numbers;
+	inode_numbers.push_back( FindNextFreeInode(FSFile));
+	Inode inode = ReadInode( FSFile, inode_numbers.back());
+	unsigned long offset = 0UL;
+	int current_inode_entry = 0;
+	
+
 	while( !str.eof() && str.good())
 	{
-		memset(buffer, 0, cluster_size);
-		str.read( buffer, cluster_size);
-		FSFile.write( reinterpret_cast<char*>(buffer), cluster_size);
+		
+		memset(buffer, 0, superBlock.CLUSTER_SIZE);
+		str.read( buffer, superBlock.CLUSTER_SIZE);
+		offset = FindNextFreeBlock(FSFile);
+		inode.direct_offsets[current_inode_entry++] = offset;
+		FSFile.seekp(offset);
+		FSFile.write(reinterpret_cast<char*>(NULL), 1); // non-free block
+		FSFile.write(reinterpret_cast<char*>(buffer), superBlock.CLUSTER_SIZE);
+		if ( current_inode_entry == 12)
+		{
+			inode_numbers.push_back( FindNextFreeInode(FSFile));
+			inode.indirect_inode = inode_numbers.back();
+			WriteInode(inode, inode_numbers.at( inode_numbers.size() - 2 ), FSFile);
+			inode = ReadInode(FSFile, inode_numbers.back());
+			current_inode_entry = 0;
+		}
 	}
 	FSFile.close();
+	return inode_numbers;
+}
+
+unsigned long WriteToDirectory(char* dirPath)
+{
+
+	return 0;
+}
+
+Inode& ReadInode(std::fstream& file, unsigned long offset)
+{
+	file.seekg(offset);
+	Inode inode;
+	file.read(reinterpret_cast<char*>(&inode), sizeof(Inode));
+	return inode;
+}
+
+unsigned long WriteInode(Inode& inode, unsigned long inode_offset, std::fstream& file)
+{
+	unsigned long oldPutPointer = file.tellp();
+	file.seekp(inode_offset);
+	file.write(reinterpret_cast<char*>(&inode), sizeof(Inode));
+	return oldPutPointer;
 }
 
 void WriteSuperBlockToFS(SuperBlock& sBlock)
@@ -39,7 +89,7 @@ void WriteDirectoryToFS(Directory& dir, unsigned int cluster_size, unsigned long
 	for(int i = 0; i < dir.HEADER.NUMBER; i++)
 		str.write(reinterpret_cast<char*>(&dir.ENTRIES[i]), sizeof(dir.ENTRIES[i]));
 
-	WriteToFS(str, cluster_size, offset);
+	WriteToFS(str, offset);
 }
 
 void WriteInodeToFS(Inode& node, unsigned int cluster_size, unsigned long offset)
@@ -76,13 +126,13 @@ SuperBlock& ReadSuperBlock()
 	return superblock;
 }
 
-unsigned long FindNextFreeInode(unsigned long startingOffset = 0L)
+unsigned long FindNextFreeInode(std::fstream& FSFile,  unsigned long startingOffset = 0L)
 {
 
 	SuperBlock superBlock = ReadSuperBlock();
-	std::fstream FSFile("testfile.bin", std::fstream::in | 
+	/*std::fstream FSFile("testfile.bin", std::fstream::in | 
 										std::fstream::binary );
-	
+	*/
 	if ( !FSFile.is_open())
 	{
 		throw std::exception("Can't open FS file.");
@@ -100,17 +150,16 @@ unsigned long FindNextFreeInode(unsigned long startingOffset = 0L)
 			break;
 		}
 	}
-	FSFile.close();
+	//FSFile.close();
 	return offset;
 }
 
-
-unsigned long FindNextFreeBlock(unsigned long startingOffset = 0L)
+unsigned long FindNextFreeBlock(std::fstream& FSFile,  unsigned long startingOffset = 0L)
 {
 	SuperBlock superBlock = ReadSuperBlock();
-	std::fstream FSFile("testfile.bin", std::fstream::in | 
+	/*std::fstream FSFile("testfile.bin", std::fstream::in | 
 										std::fstream::binary );
-	
+	*/
 	if ( !FSFile.is_open())
 	{
 		throw std::exception("Can't open FS file.");
@@ -129,7 +178,7 @@ unsigned long FindNextFreeBlock(unsigned long startingOffset = 0L)
 			break;
 		}
 	}
-	FSFile.close();
+	//FSFile.close();
 	return offset;
 }
 
@@ -188,8 +237,8 @@ unsigned long FindEntryInodeNumber(Directory& dir, const char* entryName)
 	return 0;
 }
 
-
-std::vector<const char*> &split(char* s, char delim, std::vector<const char*>& elems) {
+std::vector<const char*> &split(char* s, char delim, std::vector<const char*>& elems) 
+{
     std::stringstream ss(s);
     std::string item;
     while(std::getline(ss, item, delim)) {
@@ -236,6 +285,7 @@ unsigned long GetDirByName(char* dirPath, Directory& dir, Inode& dirInode)
 		FSFile.read(reinterpret_cast<char*>(&dirInode), sizeof(Inode));
 		dir = ReadDirectory(FSFile, dirInode, superBlock);
 	}
+	FSFile.close();
 	return dirInode.direct_offsets[0]; // ???? unused
 }
 
@@ -292,3 +342,4 @@ void InitFS()
 	// check SB and FS consistency;
 	FSFile.close();
 }
+
