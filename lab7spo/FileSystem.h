@@ -7,9 +7,13 @@
 #include "INode.h"
 
 unsigned long WriteInode(Inode& inode, unsigned long inode_offset, std::fstream& file);
+Inode& ReadInode(std::fstream& file, unsigned long offset);
+unsigned long FindNextFreeInode(std::fstream& FSFile,  unsigned long startingOffset  = 0UL);
+unsigned long FindNextFreeBlock(std::fstream& FSFile,  unsigned long startingOffset  = 0UL);
+unsigned long GetDirByName(char* dirPath, Directory& dir, Inode& dirInode);
 
 
-std::vector<unsigned long> WriteToFS(std::stringstream& str, unsigned long offset)
+std::vector<unsigned long> WriteToFS(std::stringstream& str, unsigned long _offset)
 {
 
 
@@ -19,7 +23,7 @@ std::vector<unsigned long> WriteToFS(std::stringstream& str, unsigned long offse
 
 	SuperBlock superBlock;
 	FSFile.read(reinterpret_cast<char*>(&superBlock), sizeof(SuperBlock));
-	FSFile.seekp(offset);
+	FSFile.seekp(_offset);
 
 	char *buffer = new char[superBlock.CLUSTER_SIZE];
 	std::vector<unsigned long> inode_numbers;
@@ -52,8 +56,17 @@ std::vector<unsigned long> WriteToFS(std::stringstream& str, unsigned long offse
 	return inode_numbers;
 }
 
-unsigned long WriteToDirectory(char* dirPath)
+
+
+unsigned long WriteToDirectory(char* dirPath, DirEntry& newEntry)
 {
+	Inode dirInode;
+	Directory dir;
+	unsigned long dirOffset = GetDirByName(dirPath, dir, dirInode);
+	dir.HEADER.NUMBER++;
+	dir.ENTRIES[dir.HEADER.NUMBER-1] = newEntry; // hidden problems ?
+
+
 
 	return 0;
 }
@@ -78,7 +91,7 @@ void WriteSuperBlockToFS(SuperBlock& sBlock)
 {
 	std::stringstream str(std::stringstream::in | std::stringstream::out | std::stringstream::binary );
 	str.write( reinterpret_cast<char*>(&sBlock), sizeof(sBlock));
-	WriteToFS(str, sBlock.CLUSTER_SIZE, 0);
+	WriteToFS(str, 0);
 }
 
 // inode number ->
@@ -96,7 +109,7 @@ void WriteInodeToFS(Inode& node, unsigned int cluster_size, unsigned long offset
 {
 	std::stringstream str(std::stringstream::in | std::stringstream::out);
 	str.write( reinterpret_cast<char*>(&node), sizeof(node));
-	WriteToFS(str, cluster_size, offset);
+	WriteToFS(str, offset);
 }
 
 void WriteEmptyPlaces(unsigned long free_space)
@@ -126,7 +139,7 @@ SuperBlock& ReadSuperBlock()
 	return superblock;
 }
 
-unsigned long FindNextFreeInode(std::fstream& FSFile,  unsigned long startingOffset = 0L)
+unsigned long FindNextFreeInode(std::fstream& FSFile,  unsigned long startingOffset)
 {
 
 	SuperBlock superBlock = ReadSuperBlock();
@@ -154,7 +167,7 @@ unsigned long FindNextFreeInode(std::fstream& FSFile,  unsigned long startingOff
 	return offset;
 }
 
-unsigned long FindNextFreeBlock(std::fstream& FSFile,  unsigned long startingOffset = 0L)
+unsigned long FindNextFreeBlock(std::fstream& FSFile,  unsigned long startingOffset )
 {
 	SuperBlock superBlock = ReadSuperBlock();
 	/*std::fstream FSFile("testfile.bin", std::fstream::in | 
