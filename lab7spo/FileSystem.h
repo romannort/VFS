@@ -11,7 +11,7 @@ Inode& ReadInode(std::fstream& file, unsigned long offset);
 unsigned long FindNextFreeInode(std::fstream& FSFile,  unsigned long startingOffset  = 0UL);
 unsigned long FindNextFreeBlock(std::fstream& FSFile,  unsigned long startingOffset  = 0UL);
 unsigned long GetDirByName(char* dirPath, Directory& dir, Inode& dirInode);
-
+SuperBlock& ReadSuperBlock(std::fstream& file);
 
 std::vector<unsigned long> WriteToFS(std::stringstream& str, unsigned long _offset)
 {
@@ -123,6 +123,13 @@ void WriteEmptyPlaces(unsigned long free_space)
 	memset(buffer, 0, free_space);
 	FSFile.write(buffer, free_space);
 	FSFile.close();
+}
+
+SuperBlock& ReadSuperBlock(std::fstream& file)
+{
+	SuperBlock superblock;
+	file.read(reinterpret_cast<char*>(&superblock), sizeof(SuperBlock));
+	return superblock;
 }
 
 SuperBlock& ReadSuperBlock()
@@ -302,6 +309,65 @@ unsigned long GetDirByName(char* dirPath, Directory& dir, Inode& dirInode)
 	return dirInode.direct_offsets[0]; // ???? unused
 }
 
+
+
+void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode)
+{
+	SuperBlock superBlock = ReadSuperBlock();
+	char* buffer = new char[superBlock.CLUSTER_SIZE];
+	std::stringstream stream( std::stringstream::in |
+		std::stringstream::out |
+		std::stringstream::binary);
+
+	stream.write(reinterpret_cast<char*>(&dir.HEADER), sizeof(DirHeader));
+	for( int i = 0; i < dir.HEADER.NUMBER; ++i)
+	{
+		stream.write(reinterpret_cast<char*>(&dir.ENTRIES[i]), sizeof(DirEntry));
+	}
+	// ------------
+	Inode tmpInode = dirInode;
+
+	while ( !stream.eof() && stream.good())
+	{
+		for ( int i = 0; i < 12; ++i)
+		{
+			memset(buffer, 0, superBlock.CLUSTER_SIZE);
+
+			if (tmpInode.direct_offsets[i] == 0)
+			{
+				tmpInode.direct_offsets[i] = FindNextFreeBlock(file);
+			}
+			stream.read(buffer, superBlock.CLUSTER_SIZE);
+			file.seekp(tmpInode.direct_offsets[i] + 1); // ? add or not one for free block byte ?
+			file.write(buffer, superBlock.CLUSTER_SIZE);
+			if  (stream.eof())
+			{
+				break;
+			}
+		}
+		if  (stream.eof())
+		{
+			break;
+		}
+
+		if (tmpInode.indirect_inode != 0)
+		{
+			file.seekg(tmpInode.indirect_inode);
+			file.read(reinterpret_cast<char*>(&tmpInode), sizeof(Inode));
+		}
+		else
+		{
+			unsigned long newNodeOffset = FindNextFreeInode(file);
+			tmpInode.indirect_inode = newNodeOffset;
+			WriteInode(tmpInode, tmpInode.own_offset, file);
+			file.seekg(newNodeOffset);
+			file.read(reinterpret_cast<char*>(&tmpInode), sizeof(Inode));
+		}
+	}
+	
+}
+
+
 void CreateNewFS()
 {
 	SuperBlock sBlock = SuperBlock();
@@ -337,10 +403,9 @@ void CreateNewFS()
 	WriteDirectoryToFS(rootDir, sBlock.CLUSTER_SIZE, sBlock.DATA_TABLE_START);
 
 	// Dummy INode
-	Inode inode = { {1,23,4,5,6,7,8,9,0,1,2}, 1000000L };
+	Inode inode = { sBlock.INODE_TABLE_START + sizeof(Inode), {1,23,4,5,6,7,8,9,0,1,2}, 1000000L };
 	WriteInodeToFS(inode, sBlock.CLUSTER_SIZE, sBlock.INODE_TABLE_START + sizeof(Inode));
 }
-
 
 void InitFS()
 {

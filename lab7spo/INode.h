@@ -1,5 +1,6 @@
 struct inode 
 {
+	unsigned long own_offset;
 	unsigned long direct_offsets[12];
 	unsigned long indirect_inode;
 };
