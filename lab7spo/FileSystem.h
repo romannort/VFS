@@ -2,6 +2,7 @@
 #include <fstream>
 #include <sstream>
 #include <exception>
+#include <vector>
 
 #include "INode.h"
 
@@ -132,6 +133,111 @@ unsigned long FindNextFreeBlock(unsigned long startingOffset = 0L)
 	return offset;
 }
 
+Directory& ReadDirectory(std::fstream& file, Inode& dirInode, SuperBlock& superBlock )
+{
+	char* buffer = new char[superBlock.CLUSTER_SIZE];
+	std::stringstream stream( std::stringstream::in |
+		std::stringstream::out |
+		std::stringstream::binary);
+
+	Inode tmpInode = dirInode;
+	while(1)
+	{
+		for ( int i = 0; i < 12; ++i)
+		{
+			memset(buffer, 0, superBlock.CLUSTER_SIZE);
+			if (tmpInode.direct_offsets[i] != 0)
+			{
+				file.seekg(tmpInode.direct_offsets[i] + 1); // ? add or not one for free block byte ?
+				file.read(buffer, superBlock.CLUSTER_SIZE);
+				stream << buffer;
+			}
+			else
+			{
+				break;
+			}
+		}
+		if (tmpInode.indirect_inode != 0)
+		{
+			file.seekg(tmpInode.indirect_inode);
+			file.read(reinterpret_cast<char*>(&tmpInode), sizeof(Inode));
+		}
+		else
+		{
+			break;
+		}
+	}
+	Directory dir;
+	stream.read(reinterpret_cast<char*>(&dir.HEADER), sizeof(DirHeader));
+	for( int i = 0; i < dir.HEADER.NUMBER; ++i)
+	{
+		stream.read(reinterpret_cast<char*>(&dir.ENTRIES[i]), sizeof(DirEntry));
+	}
+	return dir;
+}
+
+unsigned long FindEntryInodeNumber(Directory& dir, const char* entryName)
+{
+	for ( int i = 0; i < dir.HEADER.NUMBER; ++i)
+	{
+		if( strcmp(dir.ENTRIES[i].ENTRY_NAME, entryName))
+		{
+			return dir.ENTRIES[i].INODE_NUMBER;
+		}
+	}
+	return 0;
+}
+
+
+std::vector<const char*> &split(char* s, char delim, std::vector<const char*>& elems) {
+    std::stringstream ss(s);
+    std::string item;
+    while(std::getline(ss, item, delim)) {
+		elems.push_back(item.c_str());
+    }
+	elems.push_back(0);
+    return elems;
+}
+
+std::vector<const char*> split(char* s, char delim) {
+    std::vector<const char*> elems;
+    return split(s, delim, elems);
+}
+
+
+// dir - output arg: struct for dir with dirPath
+// dirInode - output arg: first inode for dir with dirPath
+unsigned long GetDirByName(char* dirPath, Directory& dir, Inode& dirInode)
+{
+	SuperBlock superBlock = ReadSuperBlock();
+
+	std::fstream FSFile("testfile.bin", std::fstream::in |
+		std::fstream::out | std::fstream::binary);
+
+	if ( !FSFile.is_open())
+	{
+		throw std::exception("Can't open FS file.");
+	}
+
+	// Array of directories to go through
+	std::vector<const char*> pathList = split(dirPath, '/');
+	// Last entry in generated list - NULL
+
+	Inode rootInode = {0};
+	FSFile.seekg( superBlock.INODE_TABLE_START + sizeof(Inode));
+	FSFile.read( reinterpret_cast<char*>(&rootInode), sizeof(Inode));
+	Directory rootDir = ReadDirectory(FSFile, rootInode, superBlock);
+
+	dir = rootDir;
+	for ( int i = 0; pathList[i] != NULL; ++i)
+	{
+		unsigned long nextInodeNumber = FindEntryInodeNumber(dir, pathList[i]);
+		FSFile.seekg(nextInodeNumber * sizeof(Inode));
+		FSFile.read(reinterpret_cast<char*>(&dirInode), sizeof(Inode));
+		dir = ReadDirectory(FSFile, dirInode, superBlock);
+	}
+	return dirInode.direct_offsets[0]; // ???? unused
+}
 
 void CreateNewFS()
 {
