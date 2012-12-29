@@ -257,6 +257,7 @@ Directory& ReadDirectory(std::fstream& file, Inode& dirInode, SuperBlock& superB
 	}
 	Directory dir;
 	stream.read(reinterpret_cast<char*>(&dir.HEADER), sizeof(DirHeader));
+	dir.ENTRIES = new DirEntry[dir.HEADER.NUMBER];
 	for( int i = 0; i < dir.HEADER.NUMBER; ++i)
 	{
 		stream.read(reinterpret_cast<char*>(&dir.ENTRIES[i]), sizeof(DirEntry));
@@ -461,11 +462,12 @@ std::vector<char*> ShowDirList(char* dirPath)
 	std::vector<char*> dirList;
 	for (int i = 0; i < dir.HEADER.NUMBER; ++i)
 	{
-		char* line = new char[20];
+		char* line = new char[80];
+		memset(line, 0, 80);
 		strcat(line, dir.ENTRIES[i].ENTRY_NAME);
 		if ( !dir.ENTRIES[i].ISFILE ) 
 		{
-			strcat(line, "DIR");
+			strcat(line, " <DIR>");
 		}
 		dirList.push_back( line );
 	}

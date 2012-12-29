@@ -56,6 +56,7 @@ void AddNewFile()							//4
 void AddNewDir(char* currentDir, char* command)							//5
 {
 	char* path = strtok(command , " \t");
+	path = strtok(command, " \t");
 	AddDirectory(currentDir, command);
 }
 
