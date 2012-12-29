@@ -24,7 +24,6 @@ unsigned long WriteToFS(std::stringstream& str)
 
 	SuperBlock superBlock;
 	FSFile.read(reinterpret_cast<char*>(&superBlock), sizeof(SuperBlock));
-	//FSFile.seekp(_offset);
 
 	char *buffer = new char[superBlock.CLUSTER_SIZE];
 	std::vector<unsigned long> inode_numbers;
@@ -58,8 +57,6 @@ unsigned long WriteToFS(std::stringstream& str)
 	return inode_numbers.front();
 }
 
-
-// ??
 Inode& WriteToDirectory(char* dirPath, DirEntry& newEntry)
 {
 	Inode dirInode;
@@ -360,8 +357,8 @@ void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode)
 			if (tmpInode.direct_offsets[i] == 0)
 			{
 				tmpInode.direct_offsets[i] = FindNextFreeBlock(file);
-			file.seekp(tmpInode.direct_offsets[i] + 1); // ? add or not one for free block byte ?
 			}
+			file.seekp(tmpInode.direct_offsets[i] + 1); // ? add or not one for free block byte ?
 			stream.read(buffer, superBlock.CLUSTER_SIZE);
 			file.write(buffer, superBlock.CLUSTER_SIZE);
 			if  (stream.eof())
@@ -388,7 +385,7 @@ void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode)
 			file.read(reinterpret_cast<char*>(&tmpInode), sizeof(Inode));
 		}
 	}
-	WriteInode(tmpInode, tmpInode.own_offset, file); //?
+	//	WriteInode(tmpInode, tmpInode.own_offset, file); //?
 }
 
 
@@ -402,10 +399,7 @@ void CreateNewFS()
 
 	std::cout << "Please enter size of cluster (B): ";
 	std::cin >> sBlock.CLUSTER_SIZE;
-//	sBlock.CLUSTER_SIZE *= 1024;
 	sBlock.INODE_TABLE_START = sizeof(SuperBlock);
-//	std::cout << "Please enter start size of node table(kB): ";
-//	std::cin >> sBlock.INODE_TABLE_SIZE;
 	sBlock.INODE_TABLE_SIZE = (long)(sBlock.MAX_SIZE * 0.125);
 
 	Inode NullNode = Inode();
@@ -433,11 +427,6 @@ void CreateNewFS()
 	file.close();
 	
 	WriteDirectoryToFS(rootDir);
-	
-
-	// Dummy INode
-	//Inode inode = { sBlock.INODE_TABLE_START + sizeof(Inode), {1,23,4,5,6,7,8,9,0,1,2}, 1000000L };
-	//WriteInodeToFS(inode, sBlock.CLUSTER_SIZE, sBlock.INODE_TABLE_START + sizeof(Inode));
 }
 
 void InitFS()

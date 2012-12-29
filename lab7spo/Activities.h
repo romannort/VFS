@@ -12,7 +12,7 @@ int GetCommandNum(char* command)
 			return i;
 		}
 	}
-	return 0;
+	return -1;
 }
 
 
@@ -132,6 +132,9 @@ void ExecuteCommand(char* aCurrentDir)
 					break;
 				case 9:
 					return;
+				default:
+					printf("Unknown command '%s'. Use help to get a command list.\n", command);		
+					break;
 			}
 	}
 }
