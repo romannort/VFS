@@ -18,7 +18,6 @@ void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode);
 unsigned long WriteToFS(std::stringstream& str)
 {
 
-
 	std::fstream FSFile("testfile.bin", std::fstream::in | 
 										std::fstream::out | 
 										std::fstream::binary);
@@ -269,20 +268,21 @@ unsigned long FindEntryInodeNumber(Directory& dir, const char* entryName)
 {
 	for ( int i = 0; i < dir.HEADER.NUMBER; ++i)
 	{
-		if( strcmp(dir.ENTRIES[i].ENTRY_NAME, entryName))
+		if(!strcmp(dir.ENTRIES[i].ENTRY_NAME, entryName))
 		{
 			return dir.ENTRIES[i].INODE_NUMBER;
 		}
 	}
-	return 0;
+	return -1;
 }
 
 std::vector<const char*> &split(char* s, char delim, std::vector<const char*>& elems) 
 {
     std::stringstream ss(s);
     std::string item;
-    while(std::getline(ss, item, delim)) {
-		elems.push_back(item.c_str());
+    while(std::getline(ss, item, delim)) 
+	{
+		elems.push_back( item != "" ? item.c_str() : "/");
     }
 	elems.push_back(0);
     return elems;
@@ -323,6 +323,8 @@ unsigned long GetDirByName(char* dirPath, Directory& dir, Inode& dirInode)
 	for ( int i = 0; pathList[i] != NULL; ++i)
 	{
 		unsigned long nextInodeNumber = FindEntryInodeNumber(dir, pathList[i]);
+		if(nextInodeNumber == -1)
+			return -1;
 		FSFile.seekg(nextInodeNumber * sizeof(Inode));
 		FSFile.read(reinterpret_cast<char*>(&dirInode), sizeof(Inode));
 		dir = ReadDirectory(FSFile, dirInode, superBlock);
@@ -358,9 +360,9 @@ void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode)
 			if (tmpInode.direct_offsets[i] == 0)
 			{
 				tmpInode.direct_offsets[i] = FindNextFreeBlock(file);
+			file.seekp(tmpInode.direct_offsets[i] + 1); // ? add or not one for free block byte ?
 			}
 			stream.read(buffer, superBlock.CLUSTER_SIZE);
-			file.seekp(tmpInode.direct_offsets[i] + 1); // ? add or not one for free block byte ?
 			file.write(buffer, superBlock.CLUSTER_SIZE);
 			if  (stream.eof())
 			{
@@ -419,7 +421,7 @@ void CreateNewFS()
 
 	Directory rootDir = Directory();
 	rootDir.HEADER = DirHeader();
-	strcpy(rootDir.HEADER.NAME, "//");
+	strcpy(rootDir.HEADER.NAME, "/");
 	rootDir.HEADER.NUMBER = 0;
 
 	
@@ -467,7 +469,7 @@ std::vector<char*> ShowDirList(char* dirPath)
 		strcat(line, dir.ENTRIES[i].ENTRY_NAME);
 		if ( !dir.ENTRIES[i].ISFILE ) 
 		{
-			strcat(line, " <DIR>");
+			strcat(line, "\t<DIR>");
 		}
 		dirList.push_back( line );
 	}

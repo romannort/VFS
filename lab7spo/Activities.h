@@ -42,10 +42,21 @@ void ShowDirectory(char* currentDir)						//2
 	}
 }
 
-void ChangeDirectory(char* currentDir, char* command)						//3
+char* ChangeDirectory()						//3
 {
-	char* path = strtok( command, " \t");
-
+	char* path = new char[100];
+	std::cin >> path;
+	Directory dir;
+	Inode dirInode;
+	if(GetDirByName(path, dir, dirInode) == -1)
+	{
+		std::cout << "No such directory!";
+		return NULL;
+	}
+	else
+	{
+		return path;
+	}
 }
 
 void AddNewFile()							//4
@@ -55,8 +66,7 @@ void AddNewFile()							//4
 
 void AddNewDir(char* currentDir, char* command)							//5
 {
-	char* path = strtok(command , " \t");
-	path = strtok(command, " \t");
+	std::cin >> command;
 	AddDirectory(currentDir, command);
 }
 
@@ -80,40 +90,48 @@ void Rename()								//9
 	puts("\n\tRenaming done\n");
 }
 
-void ExecuteCommand(char* currentDir)
+void ExecuteCommand(char* aCurrentDir)
 {
+	char currentDir[100];
+	strcpy(currentDir, aCurrentDir);
 	char command[100];
-	scanf("%s", command);
-	switch(GetCommandNum(command))
-		{
-			case 0:
-				PrintHelp();
-				break;
-			case 1:
-				ShowDirectory(currentDir);
-				break;
-			case 2:
-				ChangeDirectory(currentDir, command);
-				break;
-			case 3:
-				AddNewFile();
-				break;
-			case 4:
-				AddNewDir(currentDir, command);
-				break;
-			case 5:
-				Remove();
-				break;
-			case 6:
-				Copy();
-				break;
-			case 7:
-				Move();
-				break;
-			case 8:
-				Rename();
-				break;
-			case 9:
-				return;
-		}
+	while( true )
+	{
+		printf("%s# ", currentDir);
+		std::cin >> command;
+		switch(GetCommandNum(command))
+			{
+				case 0:
+					PrintHelp();
+					break;
+				case 1:
+					ShowDirectory(currentDir);
+					break;
+				case 2:
+					strcpy(command, ChangeDirectory());
+					if(command != "")
+						strcpy(currentDir, command);
+					break;
+				case 3:
+					AddNewFile();
+					break;
+				case 4:
+					AddNewDir(currentDir, command);
+					break;
+				case 5:
+					Remove();
+					break;
+				case 6:
+					Copy();
+					break;
+				case 7:
+					Move();
+					break;
+				case 8:
+					Rename();
+					break;
+				case 9:
+					return;
+			}
+	}
 }
