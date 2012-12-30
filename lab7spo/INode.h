@@ -10,6 +10,8 @@ struct inode
 
 typedef struct inode Inode;
 
+Inode NULL_INODE = {0};
+
 struct superblock
 {
 	unsigned long FREE_SIZE;
