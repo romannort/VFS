@@ -44,7 +44,7 @@ std::string ChangeDirectory(std::string, std::string path, std::string curDir)		
 {
 	Directory dir;
 	Inode dirInode;
-	if(GetDirByName(path, dir, dirInode) == -1)
+	if( GetDirByName(path, dir, dirInode) == -1)
 	{
 		std::cout << "No such directory!";
 		return curDir;
@@ -66,9 +66,9 @@ void AddNewDir(std::string currentDir, std::vector<std::string> command)							/
 	AddDirectory(currentDir, path);
 }
 
-void Remove()								//6
+void Remove(std::string currentDir, std::vector<std::string> command)
 {
-	puts("\n\tRemoving done\n");
+	RemoveDir(currentDir, command[1]);
 }
 
 void Copy()									//7
@@ -122,7 +122,7 @@ void ExecuteCommand()
 					AddNewDir(currentDir, argv);
 					break;
 				case 5:
-					Remove();
+					Remove(currentDir, argv);
 					break;
 				case 6:
 					Copy();
