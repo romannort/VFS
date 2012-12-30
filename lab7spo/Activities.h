@@ -3,19 +3,17 @@
 
 char* Commands[10] = {"help", "ls", "cd", "mkfile", "mkdir", "rm", "cp", "mv", "rename?", "exit"};
 
-int GetCommandNum(char* command)
+int GetCommandNum(std::string command)
 {
 	for(int i = 0; i < 10; i++)
 	{
-		if(strstr(command, Commands[i]) == command)
+		if(strstr(command.c_str() , Commands[i]) == command.c_str())
 		{
 			return i;
 		}
 	}
 	return -1;
 }
-
-
 
 void PrintHelp()							//1
 {
@@ -32,24 +30,24 @@ void PrintHelp()							//1
 	puts("\texit - ");
 }
 
-void ShowDirectory(char* currentDir)						//2
+void ShowDirectory(std::string currentDir)						//2
 {
-	std::vector<char*> lst = ShowDirList(currentDir);
+	std::vector<std::string> lst = ShowDirList(currentDir);
 	printf("%d entries\n", lst.size());
 	for ( int i = 0; i < lst.size(); ++i)
 	{
-		puts(lst[i]);
+		std::cout << lst[i] << std::endl;
 	}
 }
 
-char* ChangeDirectory(char* path)						//3
+std::string ChangeDirectory(std::string, std::string path, std::string curDir)						//3
 {
 	Directory dir;
 	Inode dirInode;
 	if(GetDirByName(path, dir, dirInode) == -1)
 	{
 		std::cout << "No such directory!";
-		return NULL;
+		return curDir;
 	}
 	else
 	{
@@ -62,10 +60,10 @@ void AddNewFile()							//4
 	puts("\n\tFile added\n");
 }
 
-void AddNewDir(char* currentDir, char* command)							//5
+void AddNewDir(std::string currentDir, std::vector<std::string> command)							//5
 {
-	std::cin >> command;
-	AddDirectory(currentDir, command);
+	const char* path = command[1].c_str();
+	AddDirectory(currentDir, path);
 }
 
 void Remove()								//6
@@ -88,17 +86,25 @@ void Rename()								//9
 	puts("\n\tRenaming done\n");
 }
 
+void NoSuchCommand(std::string command)
+{
+	std::cout << "'" << command <<"' is not recognized as internal command. Use 'help' to take command list\n";
+}
+
 void ExecuteCommand()
 {
-	char currentDir[100];
-	char* path = new char[100];					
-	strcpy(currentDir, "/root");
-	char command[100];
-	while( true )
+	//char command[100];
+	/*scanf("%s", command);*/
+	
+	std::string currentDir = "/";
+	std::string command;
+	std::vector<std::string> argv;
+	while(true)
 	{
-		printf("%s# ", currentDir);
-		std::cin >> command;
-		switch(GetCommandNum(command))
+		std::cout << "\n" << currentDir << "# ";
+		std::getline(std::cin, command, '\n');
+		argv = split(command, ' ');
+		switch(GetCommandNum(argv[0]))
 			{
 				case 0:
 					PrintHelp();
@@ -107,16 +113,13 @@ void ExecuteCommand()
 					ShowDirectory(currentDir);
 					break;
 				case 2:
-					std::cin >> path;
-					strcpy(command, ChangeDirectory(path));
-					if(command != "")
-						strcpy(currentDir, command);
+					currentDir = ChangeDirectory(currentDir, argv[1], currentDir);
 					break;
 				case 3:
 					AddNewFile();
 					break;
 				case 4:
-					AddNewDir(currentDir, command);
+					AddNewDir(currentDir, argv);
 					break;
 				case 5:
 					Remove();
@@ -133,7 +136,7 @@ void ExecuteCommand()
 				case 9:
 					return;
 				default:
-					printf("Unknown command '%s'. Use help to get a command list.\n", command);		
+					NoSuchCommand(argv[0]);
 					break;
 			}
 	}
