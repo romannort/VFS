@@ -5,9 +5,10 @@
 
 #include "Activities.h"
 
-int main ( int argc, char** argv)
+
+
+void main ( int argc, char** argv)
 {
 	InitFS();
 	ExecuteCommand();
-	return 0;
 }
