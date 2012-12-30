@@ -307,7 +307,7 @@ unsigned long FindEntryInodeNumber(Directory& dir, const char* entryName)
 			return dir.ENTRIES[i].INODE_NUMBER;
 		}
 	}
-	return -1;
+	return 0; // 0 - NULL_INODE
 }
 
 // split line by delimeter
@@ -359,7 +359,7 @@ unsigned long GetDirByName(std::string dirPath, Directory& dir, Inode& dirInode)
 	for ( int i = 0; pathList[i] != ""; ++i)
 	{
 		unsigned long nextInodeNumber = FindEntryInodeNumber(dir, (char*)pathList[i].c_str());
-		if(nextInodeNumber == -1) 
+		if(nextInodeNumber == 0) 
 		{
 			std::cout << "No such directory!";
 			FSFile.close();
