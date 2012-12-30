@@ -426,6 +426,15 @@ void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode)
 			WriteDataBlock(buffer, superBlock, tmpInode.DATA_NUMBERS[i], file);
 			if  (stream.eof())
 			{
+				memset(buffer, 0, superBlock.CLUSTER_SIZE - 1);	
+				for ( int j = i+1; j < INODE_DIRECT_OFFSETS; ++j)
+				{
+					if ( tmpInode.DATA_NUMBERS[j] != 0)
+					{
+						WriteDataBlock(buffer, superBlock, tmpInode.DATA_NUMBERS[j], file, 1); // free unused blocks in that inode
+						tmpInode.DATA_NUMBERS[j] = 0;
+					}
+				}
 				break;
 			}
 		}
@@ -599,6 +608,7 @@ void RemoveEntry(Inode& inode, std::fstream& file, SuperBlock& sb)
 			break;
 		}
 	}
+	WriteInode(NULL_INODE, tmpInode.NUMBER, file);
 }
 
 void RemoveDir(Directory& dir, Inode& dirInode, SuperBlock& sb, std::fstream& file)
@@ -626,7 +636,7 @@ void RemoveDir(Directory& dir, Inode& dirInode, SuperBlock& sb, std::fstream& fi
 
 int RemoveDir(std::string& parentPath, std::string& target)
 {
-	std::string targetPath = parentPath + "/" + target;
+	std::string targetPath = parentPath + ( parentPath.back() == '/' ? "" : "/")  + target;
 
 	Directory parentDir;
 	Inode parentInode;
