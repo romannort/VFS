@@ -42,10 +42,8 @@ void ShowDirectory(char* currentDir)						//2
 	}
 }
 
-char* ChangeDirectory()						//3
+char* ChangeDirectory(char* path)						//3
 {
-	char* path = new char[100];
-	std::cin >> path;
 	Directory dir;
 	Inode dirInode;
 	if(GetDirByName(path, dir, dirInode) == -1)
@@ -90,10 +88,11 @@ void Rename()								//9
 	puts("\n\tRenaming done\n");
 }
 
-void ExecuteCommand(char* aCurrentDir)
+void ExecuteCommand()
 {
 	char currentDir[100];
-	strcpy(currentDir, aCurrentDir);
+	char* path = new char[100];					
+	strcpy(currentDir, "/root");
 	char command[100];
 	while( true )
 	{
@@ -108,7 +107,8 @@ void ExecuteCommand(char* aCurrentDir)
 					ShowDirectory(currentDir);
 					break;
 				case 2:
-					strcpy(command, ChangeDirectory());
+					std::cin >> path;
+					strcpy(command, ChangeDirectory(path));
 					if(command != "")
 						strcpy(currentDir, command);
 					break;

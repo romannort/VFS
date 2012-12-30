@@ -10,5 +10,5 @@
 void main ( int argc, char** argv)
 {
 	InitFS();
-	ExecuteCommand("/");
+	ExecuteCommand();
 }

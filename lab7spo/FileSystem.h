@@ -415,7 +415,7 @@ void CreateNewFS()
 
 	Directory rootDir = Directory();
 	rootDir.HEADER = DirHeader();
-	strcpy(rootDir.HEADER.NAME, "/");
+	strcpy(rootDir.HEADER.NAME, "root");
 	rootDir.HEADER.NUMBER = 0;
 
 	
@@ -465,6 +465,26 @@ std::vector<char*> ShowDirList(char* dirPath)
 	return dirList;
 }
 
+unsigned int GetNextINodeNumber()
+{
+	SuperBlock superBlock = ReadSuperBlock();
+	Inode bufNode;
+
+	std::fstream file("testfile.bin", std::fstream::out | std::fstream::binary | std::fstream::in);
+	file.seekp(superBlock.INODE_TABLE_START);
+	int nodenum = -1;
+	do
+	{
+		file.read(reinterpret_cast<char*>(&bufNode), sizeof(Inode));
+		nodenum++;
+	}
+	while(bufNode.used != 0);
+	
+	file.close();
+	
+	return nodenum;
+}
+
 Directory& AddDirectory(char* parentDirPath, char* dirName)
 {
 	Inode parentInode;
@@ -478,7 +498,8 @@ Directory& AddDirectory(char* parentDirPath, char* dirName)
 	DirEntry newEntry;
 	strcpy(newEntry.ENTRY_NAME, dirName);
 	newEntry.ISFILE = 0;
-	newEntry.INODE_NUMBER = WriteDirectoryToFS(newDir);
+//	newEntry.INODE_NUMBER = WriteDirectoryToFS(newDir); // ????? WTF
+	newEntry.INODE_NUMBER = GetNextINodeNumber();
 	
 
 	if ( parentDir.HEADER.NUMBER == 0)
