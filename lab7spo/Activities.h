@@ -40,10 +40,23 @@ void ShowDirectory(std::string currentDir)						//2
 	}
 }
 
-std::string ChangeDirectory(std::string, std::string path, std::string curDir)						//3
+std::string AbsolutePath(std::string curDir, std::string path)
+{
+	if(path[0] == '/')
+		return path;
+	else
+		if(curDir == "/")
+			return curDir + path;
+		else
+			return curDir + '/' + path;
+}
+
+std::string ChangeDirectory(std::string curDir, std::string path)						//3
 {
 	Directory dir;
 	Inode dirInode;
+	
+	path = AbsolutePath(curDir, path);
 	if(GetDirByName(path, dir, dirInode) == -1)
 	{
 		std::cout << "No such directory!";
@@ -113,7 +126,7 @@ void ExecuteCommand()
 					ShowDirectory(currentDir);
 					break;
 				case 2:
-					currentDir = ChangeDirectory(currentDir, argv[1], currentDir);
+					currentDir = ChangeDirectory(currentDir, argv[1]);
 					break;
 				case 3:
 					AddNewFile();
@@ -136,7 +149,8 @@ void ExecuteCommand()
 				case 9:
 					return;
 				default:
-					NoSuchCommand(argv[0]);
+					if(argv[0] != "")
+						NoSuchCommand(argv[0]);
 					break;
 			}
 	}

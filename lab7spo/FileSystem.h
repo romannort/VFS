@@ -300,10 +300,8 @@ unsigned long FindEntryInodeNumber(Directory& dir, const char* entryName)
 			return dir.ENTRIES[i].INODE_NUMBER;
 		}
 	}
-	return 0;
+	return -1;
 }
-
-
 
 // split line by delimeter
 // last entry - emprt string
@@ -354,7 +352,12 @@ unsigned long GetDirByName(std::string dirPath, Directory& dir, Inode& dirInode)
 	for ( int i = 0; pathList[i] != ""; ++i)
 	{
 		unsigned long nextInodeNumber = FindEntryInodeNumber(dir, (char*)pathList[i].c_str());
-		FSFile.seekg(nextInodeNumber * sizeof(Inode)); //?
+		if(nextInodeNumber == -1) 
+		{
+			FSFile.close();
+			return -1;
+		}
+		FSFile.seekg(nextInodeNumber * (superBlock.CLUSTER_SIZE)  + superBlock.INODE_TABLE_START); //?
 		FSFile.read(reinterpret_cast<char*>(&dirInode), sizeof(Inode));
 		dir = ReadDirectory(FSFile, dirInode, superBlock);
 	}
@@ -482,7 +485,6 @@ void InitFS()
 	// check SB and FS consistency;
 	FSFile.close();
 }
-
 
 std::vector<std::string> ShowDirList(std::string dirPath)
 {
