@@ -11,7 +11,7 @@ void WriteInode(Inode& inode, unsigned long inode_offset, std::fstream& file);
 Inode& ReadInode(std::fstream& file, unsigned long offset);
 unsigned long FindNextFreeInode(std::fstream& FSFile);
 unsigned long FindNextFreeBlock(std::fstream& FSFile);
-unsigned long GetDirByName(char* dirPath, Directory& dir, Inode& dirInode);
+unsigned long GetDirByName(std::string dirPath, Directory& dir, Inode& dirInode);
 SuperBlock& ReadSuperBlock(std::fstream& file);
 SuperBlock& ReadSuperBlock();
 void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode);
@@ -295,7 +295,7 @@ unsigned long FindEntryInodeNumber(Directory& dir, const char* entryName)
 {
 	for ( int i = 0; i < dir.HEADER.NUMBER; ++i)
 	{
-		if( strcmp(dir.ENTRIES[i].ENTRY_NAME, entryName))
+		if(!strcmp(dir.ENTRIES[i].ENTRY_NAME, entryName))
 		{
 			return dir.ENTRIES[i].INODE_NUMBER;
 		}
@@ -327,7 +327,7 @@ std::vector<std::string> split(std::string s, char delim) {
 
 // dir - output arg: struct for dir with dirPath
 // dirInode - output arg: first inode for dir with dirPath
-unsigned long GetDirByName(char* dirPath, Directory& dir, Inode& dirInode)
+unsigned long GetDirByName(std::string dirPath, Directory& dir, Inode& dirInode)
 {
 	SuperBlock superBlock = ReadSuperBlock();
 
@@ -484,7 +484,7 @@ void InitFS()
 }
 
 
-std::vector<std::string> ShowDirList(char* dirPath)
+std::vector<std::string> ShowDirList(std::string dirPath)
 {
 	Directory dir;
 	Inode dirInode;
@@ -504,8 +504,7 @@ std::vector<std::string> ShowDirList(char* dirPath)
 	return dirList;
 }
 
-
-Directory& AddDirectory(char* parentDirPath, const char* dirName)
+Directory& AddDirectory(std::string parentDirPath, const char* dirName)
 {
 	Inode parentInode;
 	Directory parentDir;
