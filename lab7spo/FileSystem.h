@@ -354,6 +354,7 @@ unsigned long GetDirByName(std::string dirPath, Directory& dir, Inode& dirInode)
 		unsigned long nextInodeNumber = FindEntryInodeNumber(dir, (char*)pathList[i].c_str());
 		if(nextInodeNumber == -1) 
 		{
+			std::cout << "No such directory!";
 			FSFile.close();
 			return -1;
 		}
@@ -427,6 +428,10 @@ void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode)
 	WriteInode(tmpInode, tmpInode.NUMBER, file); //?
 }
 
+//void MoveHadlers()
+//{
+//
+//}
 
 void CreateNewFS()
 {

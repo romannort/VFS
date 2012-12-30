@@ -58,14 +58,9 @@ std::string ChangeDirectory(std::string curDir, std::string path)						//3
 	
 	path = AbsolutePath(curDir, path);
 	if(GetDirByName(path, dir, dirInode) == -1)
-	{
-		std::cout << "No such directory!";
 		return curDir;
-	}
 	else
-	{
 		return path;
-	}
 }
 
 void AddNewFile()							//4
@@ -89,9 +84,19 @@ void Copy()									//7
 	puts("\n\tCopying done\n");
 }
 
-void Move()									//8
+void Move(std::string currentDir, std::vector<std::string> command)									//8
 {
-	puts("\n\tMoving done\n");
+	Directory dir;
+	Inode dirInode;
+	std::string source = AbsolutePath(currentDir, command[1].c_str());
+	std::string dest = AbsolutePath(currentDir, command[2].c_str());
+	
+	if(GetDirByName(source, dir, dirInode) == -1  || 
+	   GetDirByName(source, dir, dirInode) == -1)
+	   return;
+
+	//MoveHadlers
+//	puts("\n\tMoving done\n");
 }
 
 void Rename()								//9
@@ -141,7 +146,7 @@ void ExecuteCommand()
 					Copy();
 					break;
 				case 7:
-					Move();
+					Move(currentDir, argv);
 					break;
 				case 8:
 					Rename();
