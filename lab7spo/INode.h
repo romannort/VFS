@@ -1,8 +1,10 @@
+#define INODE_DIRECT_OFFSETS 13
+
 struct inode 
 {
 	bool used;
-	unsigned long own_offset;
-	unsigned long direct_offsets[12];
+	unsigned long NUMBER;
+	unsigned long DATA_NUMBERS[INODE_DIRECT_OFFSETS];
 	unsigned long indirect_inode;
 };
 
