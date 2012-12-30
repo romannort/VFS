@@ -11,12 +11,13 @@ unsigned long WriteInode(Inode& inode, unsigned long inode_offset, std::fstream&
 Inode& ReadInode(std::fstream& file, unsigned long offset);
 unsigned long FindNextFreeInode(std::fstream& FSFile);
 unsigned long FindNextFreeBlock(std::fstream& FSFile);
-unsigned long GetDirByName(char* dirPath, Directory& dir, Inode& dirInode);
+unsigned long GetDirByName(std::string dirPath, Directory& dir, Inode& dirInode);
 SuperBlock& ReadSuperBlock(std::fstream& file);
 void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode);
 
 unsigned long WriteToFS(std::stringstream& str)
 {
+
 
 	std::fstream FSFile("testfile.bin", std::fstream::in | 
 										std::fstream::out | 
@@ -24,6 +25,7 @@ unsigned long WriteToFS(std::stringstream& str)
 
 	SuperBlock superBlock;
 	FSFile.read(reinterpret_cast<char*>(&superBlock), sizeof(SuperBlock));
+	//FSFile.seekp(_offset);
 
 	char *buffer = new char[superBlock.CLUSTER_SIZE];
 	std::vector<unsigned long> inode_numbers;
@@ -57,6 +59,8 @@ unsigned long WriteToFS(std::stringstream& str)
 	return inode_numbers.front();
 }
 
+
+// ??
 Inode& WriteToDirectory(char* dirPath, DirEntry& newEntry)
 {
 	Inode dirInode;
@@ -270,30 +274,31 @@ unsigned long FindEntryInodeNumber(Directory& dir, const char* entryName)
 			return dir.ENTRIES[i].INODE_NUMBER;
 		}
 	}
-	return -1;
+	return 0;
 }
 
-std::vector<const char*> &split(char* s, char delim, std::vector<const char*>& elems) 
+std::vector<std::string> &split(char* s, char delim, std::vector<std::string>& elems) 
 {
     std::stringstream ss(s);
     std::string item;
-    while(std::getline(ss, item, delim)) 
-	{
-		elems.push_back( item != "" ? item.c_str() : "/");
+    while(std::getline(ss, item, delim)) {
+		elems.push_back(item);
     }
-	elems.push_back(0);
+	elems.push_back("");
     return elems;
 }
 
-std::vector<const char*> split(char* s, char delim) {
-    std::vector<const char*> elems;
+std::vector<std::string> split(char* s, char delim) {
+    std::vector<std::string> elems;
     return split(s, delim, elems);
 }
-
+std::vector<std::string> split(std::string s, char delim) {
+	return split( (char*)s.c_str(), delim);
+}
 
 // dir - output arg: struct for dir with dirPath
 // dirInode - output arg: first inode for dir with dirPath
-unsigned long GetDirByName(char* dirPath, Directory& dir, Inode& dirInode)
+unsigned long GetDirByName(std::string dirPath, Directory& dir, Inode& dirInode)
 {
 	SuperBlock superBlock = ReadSuperBlock();
 
@@ -306,7 +311,7 @@ unsigned long GetDirByName(char* dirPath, Directory& dir, Inode& dirInode)
 	}
 
 	// Array of directories to go through
-	std::vector<const char*> pathList = split(dirPath, '/');
+	std::vector<std::string> pathList = split(dirPath, '/');
 	pathList.erase( pathList.begin()); 
 	// Last entry in generated list - NULL
 
@@ -314,22 +319,19 @@ unsigned long GetDirByName(char* dirPath, Directory& dir, Inode& dirInode)
 	FSFile.seekg( superBlock.INODE_TABLE_START + sizeof(Inode));
 	FSFile.read( reinterpret_cast<char*>(&rootInode), sizeof(Inode));
 	Directory rootDir = ReadDirectory(FSFile, rootInode, superBlock);
-
+	
 	dir = rootDir;
 	dirInode = rootInode;
-	for ( int i = 0; pathList[i] != NULL; ++i)
+	for ( int i = 0; pathList[i] != ""; ++i)
 	{
-		unsigned long nextInodeNumber = FindEntryInodeNumber(dir, pathList[i]);
-		if(nextInodeNumber == -1)
-			return -1;
+		unsigned long nextInodeNumber = FindEntryInodeNumber(dir, (char*)pathList[i].c_str());
 		FSFile.seekg(nextInodeNumber * sizeof(Inode));
 		FSFile.read(reinterpret_cast<char*>(&dirInode), sizeof(Inode));
 		dir = ReadDirectory(FSFile, dirInode, superBlock);
 	}
 	FSFile.close();
-	return dirInode.direct_offsets[0]; // ???? unused
+	return dirInode.direct_offsets[0];
 }
-
 
 
 void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode)
@@ -358,8 +360,8 @@ void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode)
 			{
 				tmpInode.direct_offsets[i] = FindNextFreeBlock(file);
 			}
-			file.seekp(tmpInode.direct_offsets[i] + 1); // ? add or not one for free block byte ?
 			stream.read(buffer, superBlock.CLUSTER_SIZE);
+			file.seekp(tmpInode.direct_offsets[i] + 1); // ? add or not one for free block byte ?
 			file.write(buffer, superBlock.CLUSTER_SIZE);
 			if  (stream.eof())
 			{
@@ -385,7 +387,7 @@ void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode)
 			file.read(reinterpret_cast<char*>(&tmpInode), sizeof(Inode));
 		}
 	}
-	//	WriteInode(tmpInode, tmpInode.own_offset, file); //?
+	WriteInode(tmpInode, tmpInode.own_offset, file); //?
 }
 
 
@@ -399,7 +401,10 @@ void CreateNewFS()
 
 	std::cout << "Please enter size of cluster (B): ";
 	std::cin >> sBlock.CLUSTER_SIZE;
+//	sBlock.CLUSTER_SIZE *= 1024;
 	sBlock.INODE_TABLE_START = sizeof(SuperBlock);
+//	std::cout << "Please enter start size of node table(kB): ";
+//	std::cin >> sBlock.INODE_TABLE_SIZE;
 	sBlock.INODE_TABLE_SIZE = (long)(sBlock.MAX_SIZE * 0.125);
 
 	Inode NullNode = Inode();
@@ -415,7 +420,7 @@ void CreateNewFS()
 
 	Directory rootDir = Directory();
 	rootDir.HEADER = DirHeader();
-	strcpy(rootDir.HEADER.NAME, "root");
+	strcpy(rootDir.HEADER.NAME, "//");
 	rootDir.HEADER.NUMBER = 0;
 
 	
@@ -427,6 +432,11 @@ void CreateNewFS()
 	file.close();
 	
 	WriteDirectoryToFS(rootDir);
+	
+
+	// Dummy INode
+	//Inode inode = { sBlock.INODE_TABLE_START + sizeof(Inode), {1,23,4,5,6,7,8,9,0,1,2}, 1000000L };
+	//WriteInodeToFS(inode, sBlock.CLUSTER_SIZE, sBlock.INODE_TABLE_START + sizeof(Inode));
 }
 
 void InitFS()
@@ -444,48 +454,27 @@ void InitFS()
 }
 
 
-std::vector<char*> ShowDirList(char* dirPath)
+std::vector<std::string> ShowDirList(std::string dirPath)
 {
 	Directory dir;
 	Inode dirInode;
 	GetDirByName(dirPath, dir, dirInode);
 
-	std::vector<char*> dirList;
+	std::vector<std::string> dirList;
 	for (int i = 0; i < dir.HEADER.NUMBER; ++i)
 	{
-		char* line = new char[80];
-		memset(line, 0, 80);
-		strcat(line, dir.ENTRIES[i].ENTRY_NAME);
-		if ( !dir.ENTRIES[i].ISFILE ) 
+		std::string line(50, ' ');
+		line.insert( 0,dir.ENTRIES[i].ENTRY_NAME);
+		if ( !dir.ENTRIES[i].ISFILE )
 		{
-			strcat(line, "\t<DIR>");
+			line.insert(30," <DIR>");
 		}
 		dirList.push_back( line );
 	}
 	return dirList;
 }
 
-unsigned int GetNextINodeNumber()
-{
-	SuperBlock superBlock = ReadSuperBlock();
-	Inode bufNode;
-
-	std::fstream file("testfile.bin", std::fstream::out | std::fstream::binary | std::fstream::in);
-	file.seekp(superBlock.INODE_TABLE_START);
-	int nodenum = -1;
-	do
-	{
-		file.read(reinterpret_cast<char*>(&bufNode), sizeof(Inode));
-		nodenum++;
-	}
-	while(bufNode.used != 0);
-	
-	file.close();
-	
-	return nodenum;
-}
-
-Directory& AddDirectory(char* parentDirPath, char* dirName)
+Directory& AddDirectory(std::string parentDirPath, const char* dirName)
 {
 	Inode parentInode;
 	Directory parentDir;
@@ -493,13 +482,14 @@ Directory& AddDirectory(char* parentDirPath, char* dirName)
 
 	Directory newDir;
 	newDir.HEADER.NUMBER = 0;
+	memset(newDir.HEADER.NAME, 0, 16);
 	strcpy(newDir.HEADER.NAME, dirName);
 	
 	DirEntry newEntry;
+	memset(newEntry.ENTRY_NAME, 0, 16);
 	strcpy(newEntry.ENTRY_NAME, dirName);
 	newEntry.ISFILE = 0;
-//	newEntry.INODE_NUMBER = WriteDirectoryToFS(newDir); // ????? WTF
-	newEntry.INODE_NUMBER = GetNextINodeNumber();
+	newEntry.INODE_NUMBER = WriteDirectoryToFS(newDir);
 	
 
 	if ( parentDir.HEADER.NUMBER == 0)
