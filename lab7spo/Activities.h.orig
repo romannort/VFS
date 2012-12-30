@@ -55,9 +55,15 @@ std::string ChangeDirectory(std::string curDir, std::string path)						//3
 {
 	Directory dir;
 	Inode dirInode;
+<<<<<<< HEAD
 	
 	path = AbsolutePath(curDir, path);
+	if(GetDirByName(path, dir, dirInode) == -1)
+=======
 	if( GetDirByName(path, dir, dirInode) == -1)
+	{
+		std::cout << "No such directory!";
+>>>>>>> origin/master
 		return curDir;
 	else
 		return path;

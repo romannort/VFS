@@ -359,6 +359,7 @@ unsigned long GetDirByName(std::string dirPath, Directory& dir, Inode& dirInode)
 	for ( int i = 0; pathList[i] != ""; ++i)
 	{
 		unsigned long nextInodeNumber = FindEntryInodeNumber(dir, (char*)pathList[i].c_str());
+<<<<<<< HEAD
 		if(nextInodeNumber == -1) 
 		{
 			std::cout << "No such directory!";
@@ -366,6 +367,9 @@ unsigned long GetDirByName(std::string dirPath, Directory& dir, Inode& dirInode)
 			return -1;
 		}
 		FSFile.seekg(nextInodeNumber * (superBlock.CLUSTER_SIZE)  + superBlock.INODE_TABLE_START); //?
+=======
+		FSFile.seekg(nextInodeNumber * sizeof(Inode) + superBlock.INODE_TABLE_START);
+>>>>>>> origin/master
 		FSFile.read(reinterpret_cast<char*>(&dirInode), sizeof(Inode));
 		dir = ReadDirectory(FSFile, dirInode, superBlock);
 	}
@@ -430,15 +434,6 @@ void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode)
 			WriteDataBlock(buffer, superBlock, tmpInode.DATA_NUMBERS[i], file);
 			if  (stream.eof())
 			{
-				memset(buffer, 0, superBlock.CLUSTER_SIZE - 1);	
-				for ( int j = i+1; j < INODE_DIRECT_OFFSETS; ++j)
-				{
-					if ( tmpInode.DATA_NUMBERS[j] != 0)
-					{
-						WriteDataBlock(buffer, superBlock, tmpInode.DATA_NUMBERS[j], file, 1); // free unused blocks in that inode
-						tmpInode.DATA_NUMBERS[j] = 0;
-					}
-				}
 				break;
 			}
 		}
@@ -615,7 +610,6 @@ void RemoveEntry(Inode& inode, std::fstream& file, SuperBlock& sb)
 			break;
 		}
 	}
-	WriteInode(NULL_INODE, tmpInode.NUMBER, file);
 }
 
 void RemoveDir(Directory& dir, Inode& dirInode, SuperBlock& sb, std::fstream& file)
@@ -643,7 +637,7 @@ void RemoveDir(Directory& dir, Inode& dirInode, SuperBlock& sb, std::fstream& fi
 
 int RemoveDir(std::string& parentPath, std::string& target)
 {
-	std::string targetPath = parentPath + ( parentPath.back() == '/' ? "" : "/")  + target;
+	std::string targetPath = parentPath + "/" + target;
 
 	Directory parentDir;
 	Inode parentInode;
