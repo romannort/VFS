@@ -209,9 +209,6 @@ unsigned long FindNextFreeInode(std::fstream& FSFile)
 unsigned long FindNextFreeBlock(std::fstream& FSFile )
 {
 	SuperBlock superBlock = ReadSuperBlock(FSFile);
-	/*std::fstream FSFile("testfile.bin", std::fstream::in | 
-	std::fstream::binary );
-	*/
 	if ( !FSFile.is_open())
 	{
 		throw std::exception("Can't open FS file.");
@@ -229,7 +226,6 @@ unsigned long FindNextFreeBlock(std::fstream& FSFile )
 			break;
 		}
 	}
-	//FSFile.close();
 	return (offset - superBlock.DATA_TABLE_START) / superBlock.CLUSTER_SIZE;
 }
 
@@ -254,12 +250,9 @@ Directory& ReadDirectory(std::fstream& file, Inode& dirInode, SuperBlock& superB
 	{
 		for ( int i = 0; i < INODE_DIRECT_OFFSETS; ++i)
 		{
-			//memset(buffer, 0, superBlock.CLUSTER_SIZE - 1);
 			if (tmpInode.DATA_NUMBERS[i] != 0)
 			{
 				ReadDataBlock(buffer, tmpInode.DATA_NUMBERS[i], superBlock, file);
-				//file.seekg(tmpInode.DATA_NUMBERS[i] + 1); // ? add or not one for free block byte ?
-				//file.read(buffer, superBlock.CLUSTER_SIZE - 1);
 				stream.write(buffer, superBlock.CLUSTER_SIZE - 1);
 			}
 			else
@@ -271,8 +264,6 @@ Directory& ReadDirectory(std::fstream& file, Inode& dirInode, SuperBlock& superB
 		{
 
 			tmpInode = ReadInode(file, tmpInode.indirect_inode);
-			/*file.seekg(tmpInode.indirect_inode);
-			file.read(reinterpret_cast<char*>(&tmpInode), sizeof(Inode));*/
 		}
 		else
 		{
@@ -529,7 +520,29 @@ void CreateNewFS()
 	WriteDirectoryToFS(rootDir);
 }
 
-
+bool NameIsValid(std::string path, std::string name, bool isFile)
+{
+	for(int i = 0; i < name.length(); i++)
+		if((name[i] > '9' || name[i] < '0') &&
+		   (name[i] > 'Z' || name[i] < 'A') &&	
+		   (name[i] > 'z' || name[i] < 'a'))
+		{
+			std::cout << "Directory name must not contain any characters except A-Z, a-z, 0-9!\n\n";
+			return false;
+		}
+	Directory dir;
+	Inode dirInode;
+	GetDirByName(path, dir, dirInode);
+	for ( int i = 0; i < dir.HEADER.NUMBER; ++i)
+	{
+		if(!strcmp(dir.ENTRIES[i].ENTRY_NAME, name.c_str()))
+		{
+			std::cout << "Such directory is already exist!\n\n";
+			return false;
+		}
+	}
+	return true;
+}
 
 void InitFS()
 {
@@ -666,7 +679,6 @@ int RemoveDir(std::string& parentPath, std::string& target)
 
 	if ( FindEntryInodeNumber(parentDir, target.c_str())  == 0)
 	{
-		// no such dir in parent dir
 		return 1;
 	}
 	Directory targetDir;

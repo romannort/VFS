@@ -71,7 +71,8 @@ void AddNewFile()							//4
 void AddNewDir(std::string currentDir, std::vector<std::string> command)							//5
 {
 	const char* path = command[1].c_str();
-	AddDirectory(currentDir, path);
+	if(NameIsValid(currentDir, path, false))
+		AddDirectory(currentDir, path);
 }
 
 void Remove(std::string currentDir, std::vector<std::string> command)
@@ -112,7 +113,6 @@ void Move(std::string currentDir, std::vector<std::string> command)									//8
 	   return;
 
 	MoveHadler(GetParent(source), GetLastFromPath(source), dest);
-//	puts("\n\tMoving done\n");
 }
 
 void Rename()								//9
@@ -122,14 +122,11 @@ void Rename()								//9
 
 void NoSuchCommand(std::string command)
 {
-	std::cout << "'" << command <<"' is not recognized as internal command. Use 'help' to take command list\n";
+	std::cout << "'" << command << "' is not recognized as internal command. Use 'help' to take command list\n";
 }
 
 void ExecuteCommand()
 {
-	//char command[100];
-	/*scanf("%s", command);*/
-	
 	std::string currentDir = "/";
 	std::string command;
 	std::vector<std::string> argv;
