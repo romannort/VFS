@@ -18,7 +18,7 @@ SuperBlock& ReadSuperBlock(std::fstream& file);
 SuperBlock& ReadSuperBlock();
 void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode);
 void AddFile (std::string dirPath, const char* fileName, std::stringstream& fileData);
-
+void AddNewFile(std::string currentDir, std::string& fileName, std::string& externFileName);
 // -----------------------------------------------------------------------
 
 void WriteDataBlock(char* data, SuperBlock& sb, unsigned long data_block_number, std::fstream& FSFile, int free = 0)
@@ -92,7 +92,7 @@ Inode& WriteToDirectory(char* dirPath, DirEntry& newEntry)
 		throw std::exception("Cant open FS file.");
 	}
 	UpdateDirectory(file, dir, dirInode);
-
+	file.close();
 	return dirInode;
 }
 
@@ -352,8 +352,9 @@ unsigned long GetDirByName(std::string dirPath, Directory& dir, Inode& dirInode)
 			FSFile.close();
 			return -1;
 		}
-		FSFile.seekg(nextInodeNumber * (superBlock.CLUSTER_SIZE)  + superBlock.INODE_TABLE_START); //?
-		FSFile.read(reinterpret_cast<char*>(&dirInode), sizeof(Inode));
+		dirInode = ReadInode(FSFile, nextInodeNumber);
+		//FSFile.seekg(nextInodeNumber * (superBlock.CLUSTER_SIZE)  + superBlock.INODE_TABLE_START); //?
+		//FSFile.read(reinterpret_cast<char*>(&dirInode), sizeof(Inode));
 		dir = ReadDirectory(FSFile, dirInode, superBlock);
 	}
 	FSFile.close();
@@ -800,19 +801,24 @@ void RecursiveCopyIn(std::string& outPath, /*std::fstream& file, SuperBlock& sb,
     struct dirent *entry = readdir(dirstruct);
     while (entry != NULL)
     {
-		if (entry->d_type == DT_DIR  && !strcmp(entry->d_name, "..") && !strcmp(entry->d_name, "."))
+		if (entry->d_type == DT_DIR)
 		{
-			Directory subdir =  AddDirectory(localPath, entry->d_name);
-			RecursiveCopyIn( outPath + "\\" + entry->d_name, /*file, sb, , subdir,*/ localPath + "/" + subdir.HEADER.NAME);
+			if (strcmp(entry->d_name, "..") && strcmp(entry->d_name, "."))
+			{
+				Directory subdir =  AddDirectory(localPath, entry->d_name);
+				RecursiveCopyIn( outPath + "\\" + entry->d_name, /*file, sb, , subdir,*/ localPath + "/" + subdir.HEADER.NAME);
+			}
 		}
 		else
 		{
-			std::fstream subfile( outPath + "\\" + entry->d_name, std::fstream::binary | std::fstream::in );
+			AddNewFile( localPath, outPath + "\\" + entry->d_name, std::string(entry->d_name));
+			/*std::fstream subfile( outPath + "\\" + entry->d_name, std::fstream::binary | std::fstream::in );
 			if ( !subfile.is_open())
 			{
 				throw std::exception("Cant open extern file for reading.");
 			}
 			AddFile(localPath, entry->d_name,ReadFileToStream( subfile ));
+			subfile.close();*/
 		}
         entry = readdir(dirstruct);
     }
@@ -841,7 +847,8 @@ int CopyInDirectories(std::string& externDirPath, std::string& localDirPath, std
 	SuperBlock sb = ReadSuperBlock(file);
 	// -=-==========
 	Inode  inode = ReadInode(file, newEntry.INODE_NUMBER);
-	RecursiveCopyIn(externDirPath, /*file, sb, inode, newLocalDir,*/ localParentPath + "/" + localDirPath);
+	RecursiveCopyIn(externDirPath, /*file, sb, inode, newLocalDir,*/ localParentPath  + 
+		( localParentPath.back() == '/' ? "" : "/") + localDirPath);
 	file.close();
 	// ---------------
 	return 0;
@@ -861,8 +868,7 @@ void AddFile (std::string dirPath, const char* fileName, std::stringstream& file
 	fileData.seekg(0, std::ios_base::beg);
 	newEntry.INODE_NUMBER = WriteToFS(fileData);
 	newDir = dir;
-	newDir.ENTRIES = new DirEntry[dir.HEADER.NUMBER+1];
-
+	
 	for (int i = 0; i < dir.HEADER.NUMBER; ++i)
 	{
 		newDir.ENTRIES[i] = dir.ENTRIES[i];
@@ -872,5 +878,16 @@ void AddFile (std::string dirPath, const char* fileName, std::stringstream& file
 	std::fstream file("testfile.bin", std::fstream::out | std::fstream::binary | std::fstream::in );
 	UpdateDirectory( file, newDir, dirInode);
 	file.close();
-	delete [] newDir.ENTRIES;
+}
+
+void AddNewFile(std::string currentDir, std::string& fileName, std::string& externFileName)  // пока что какашка, пишем test.txt в нашу FS           
+{
+
+	std::fstream file(externFileName.c_str(), std::fstream::out | std::fstream::binary | std::fstream::in );    
+	std::stringstream fileStr(std::stringstream::in | std::stringstream::out);
+	copy(std::istreambuf_iterator<char>(file),
+		std::istreambuf_iterator<char>(),
+		std::ostreambuf_iterator<char>(fileStr));
+	AddFile(currentDir, fileName.c_str(), fileStr);                                                                     //
+	file.close();
 }
