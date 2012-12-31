@@ -83,7 +83,8 @@ void AddNewFile(std::string currentDir, std::vector<std::string> argv)  // пока 
 void AddNewDir(std::string currentDir, std::vector<std::string> command)							//5
 {
 	const char* path = command[1].c_str();
-	AddDirectory(currentDir, path);
+	if(NameIsValid(currentDir, path, false))
+		AddDirectory(currentDir, path);
 }
 
 void Remove(std::string currentDir, std::vector<std::string> command)
@@ -94,6 +95,22 @@ void Remove(std::string currentDir, std::vector<std::string> command)
 void Copy()									//7
 {
 	puts("\n\tCopying done\n");
+}
+
+std::string GetParent(std::string path)
+{
+	size_t found;
+	found = path.find_last_of("/");
+	if(found == 0)
+		return "/";
+	return path.substr(0,found);
+}
+
+std::string GetLastFromPath(std::string path)
+{
+	size_t found;
+	found = path.find_last_of("/");
+	return path.substr(found+1);
 }
 
 void Move(std::string currentDir, std::vector<std::string> command)									//8
@@ -107,8 +124,7 @@ void Move(std::string currentDir, std::vector<std::string> command)									//8
 		GetDirByName(source, dir, dirInode) == -1)
 		return;
 
-	//MoveHadlers
-	//	puts("\n\tMoving done\n");
+	MoveHadler(GetParent(source), GetLastFromPath(source), dest);
 }
 
 void Rename()								//9
@@ -118,7 +134,7 @@ void Rename()								//9
 
 void NoSuchCommand(std::string command)
 {
-	std::cout << "'" << command <<"' is not recognized as internal command. Use 'help' to take command list\n";
+	std::cout << "'" << command << "' is not recognized as internal command. Use 'help' to take command list\n";
 }
 
 void RemoveFileCommand(std::string& command, std::string& currentDir)
@@ -128,9 +144,6 @@ void RemoveFileCommand(std::string& command, std::string& currentDir)
 
 void ExecuteCommand()
 {
-	//char command[100];
-	/*scanf("%s", command);*/
-
 	std::string currentDir = "/";
 	std::string command;
 	std::vector<std::string> argv;
