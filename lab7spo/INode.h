@@ -29,6 +29,7 @@ struct direntry
 {
 	unsigned long INODE_NUMBER;
 	bool ISFILE;
+	unsigned long FILE_SIZE;
 	char ENTRY_NAME[16];
 };
 

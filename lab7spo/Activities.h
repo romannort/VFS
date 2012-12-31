@@ -1,13 +1,15 @@
 #include <vector>
 #include "FileSystem.h"
 
-char* Commands[10] = {"help", "ls", "cd", "mkfile", "mkdir", "rm", "cp", "mv", "rename?", "exit"};
+#define COMMNDS_COUNT 11
+
+char* Commands[COMMNDS_COUNT] = {"help", "ls", "cd", "mkfile", "mkdir", "rm", "cp", "mv", "rename?", "exit", "rmfile"};
 
 int GetCommandNum(std::string command)
 {
-	for(int i = 0; i < 10; i++)
+	for(int i = 0; i < COMMNDS_COUNT; i++)
 	{
-		if(strstr(command.c_str() , Commands[i]) == command.c_str())
+		if(!strcmp(command.c_str() , Commands[i]))
 		{
 			return i;
 		}
@@ -24,6 +26,7 @@ void PrintHelp()							//1
 	puts("\tmkfile - ");
 	puts("\tmkdir - ");
 	puts("\trm - ");
+	puts("\t rmfile [filename] ");
 	puts("\tcp - ");
 	puts("\tmv - ");
 	puts("\trename - ");
@@ -55,16 +58,25 @@ std::string ChangeDirectory(std::string curDir, std::string path)						//3
 {
 	Directory dir;
 	Inode dirInode;
-	
+
 	path = AbsolutePath(curDir, path);
 	if( GetDirByName(path, dir, dirInode) == -1)
 		return curDir;
 	else
 		return path;
 }
-
-void AddNewFile()							//4
+void AddNewFile(std::string currentDir, std::vector<std::string> argv)  // пока что какашка, пишем test.txt в нашу FS           
 {
+
+	std::fstream file("test.txt", std::fstream::out | std::fstream::binary | std::fstream::in );    
+	std::stringstream fileStr(std::stringstream::in | std::stringstream::out);
+	copy(std::istreambuf_iterator<char>(file),
+
+		std::istreambuf_iterator<char>(),
+
+		std::ostreambuf_iterator<char>(fileStr));
+	AddFile(currentDir, argv[1].c_str(), fileStr);                                                                     //
+	file.close();
 	puts("\n\tFile added\n");
 }
 
@@ -90,13 +102,13 @@ void Move(std::string currentDir, std::vector<std::string> command)									//8
 	Inode dirInode;
 	std::string source = AbsolutePath(currentDir, command[1].c_str());
 	std::string dest = AbsolutePath(currentDir, command[2].c_str());
-	
+
 	if(GetDirByName(source, dir, dirInode) == -1  || 
-	   GetDirByName(source, dir, dirInode) == -1)
-	   return;
+		GetDirByName(source, dir, dirInode) == -1)
+		return;
 
 	//MoveHadlers
-//	puts("\n\tMoving done\n");
+	//	puts("\n\tMoving done\n");
 }
 
 void Rename()								//9
@@ -109,11 +121,16 @@ void NoSuchCommand(std::string command)
 	std::cout << "'" << command <<"' is not recognized as internal command. Use 'help' to take command list\n";
 }
 
+void RemoveFileCommand(std::string& command, std::string& currentDir)
+{
+	RemoveFile(command, currentDir);
+}
+
 void ExecuteCommand()
 {
 	//char command[100];
 	/*scanf("%s", command);*/
-	
+
 	std::string currentDir = "/";
 	std::string command;
 	std::vector<std::string> argv;
@@ -123,40 +140,48 @@ void ExecuteCommand()
 		std::getline(std::cin, command, '\n');
 		argv = split(command, ' ');
 		switch(GetCommandNum(argv[0]))
-			{
-				case 0:
-					PrintHelp();
-					break;
-				case 1:
-					ShowDirectory(currentDir);
-					break;
-				case 2:
-					currentDir = ChangeDirectory(currentDir, argv[1]);
-					break;
-				case 3:
-					AddNewFile();
-					break;
-				case 4:
-					AddNewDir(currentDir, argv);
-					break;
-				case 5:
-					Remove(currentDir, argv);
-					break;
-				case 6:
-					Copy();
-					break;
-				case 7:
-					Move(currentDir, argv);
-					break;
-				case 8:
-					Rename();
-					break;
-				case 9:
-					return;
-				default:
-					if(argv[0] != "")
-						NoSuchCommand(argv[0]);
-					break;
-			}
+		{
+		case 0:
+			PrintHelp();
+			break;
+		case 1:
+			ShowDirectory(currentDir);
+			break;
+		case 2:
+			currentDir = ChangeDirectory(currentDir, argv[1]);
+			break;
+		case 3:
+
+			AddNewFile(currentDir, argv);
+
+			break;
+		case 4:
+			AddNewDir(currentDir, argv);
+			break;
+		case 5:
+			Remove(currentDir, argv);
+			break;
+		case 6:
+			Copy();
+			break;
+		case 7:
+			Move(currentDir, argv);
+			break;
+		case 8:
+			Rename();
+			break;
+		case 9:
+			return;
+		case 10:
+				RemoveFileCommand(argv[1], currentDir);
+				break;
+			
+		default:
+			if(argv[0] != "")
+				NoSuchCommand(argv[0]);
+			break;
+		}
 	}
 }
+
+

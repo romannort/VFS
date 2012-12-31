@@ -290,7 +290,7 @@ Directory& ReadDirectory(std::fstream& file, Inode& dirInode, SuperBlock& superB
 	}
 	Directory dir;
 	stream.read(reinterpret_cast<char*>(&dir.HEADER), sizeof(DirHeader));
-	dir.ENTRIES = new DirEntry[dir.HEADER.NUMBER + 1];
+	dir.ENTRIES = new DirEntry[dir.HEADER.NUMBER];
 	for( int i = 0; i < dir.HEADER.NUMBER; ++i)
 	{
 		stream.read(reinterpret_cast<char*>(&dir.ENTRIES[i]), sizeof(DirEntry));
@@ -307,7 +307,7 @@ unsigned long FindEntryInodeNumber(Directory& dir, const char* entryName)
 			return dir.ENTRIES[i].INODE_NUMBER;
 		}
 	}
-	return 0; // 0 - NULL_INODE
+	return -1;
 }
 
 // split line by delimeter
@@ -359,13 +359,17 @@ unsigned long GetDirByName(std::string dirPath, Directory& dir, Inode& dirInode)
 	for ( int i = 0; pathList[i] != ""; ++i)
 	{
 		unsigned long nextInodeNumber = FindEntryInodeNumber(dir, (char*)pathList[i].c_str());
-		if(nextInodeNumber == 0) 
+<<<<<<< HEAD
+		if(nextInodeNumber == -1) 
 		{
 			std::cout << "No such directory!";
 			FSFile.close();
 			return -1;
 		}
 		FSFile.seekg(nextInodeNumber * (superBlock.CLUSTER_SIZE)  + superBlock.INODE_TABLE_START); //?
+=======
+		FSFile.seekg(nextInodeNumber * sizeof(Inode) + superBlock.INODE_TABLE_START);
+>>>>>>> origin/master
 		FSFile.read(reinterpret_cast<char*>(&dirInode), sizeof(Inode));
 		dir = ReadDirectory(FSFile, dirInode, superBlock);
 	}
@@ -430,15 +434,6 @@ void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode)
 			WriteDataBlock(buffer, superBlock, tmpInode.DATA_NUMBERS[i], file);
 			if  (stream.eof())
 			{
-				memset(buffer, 0, superBlock.CLUSTER_SIZE - 1);	
-				for ( int j = i+1; j < INODE_DIRECT_OFFSETS; ++j)
-				{
-					if ( tmpInode.DATA_NUMBERS[j] != 0)
-					{
-						WriteDataBlock(buffer, superBlock, tmpInode.DATA_NUMBERS[j], file, 1); // free unused blocks in that inode
-						tmpInode.DATA_NUMBERS[j] = 0;
-					}
-				}
 				break;
 			}
 		}
@@ -566,18 +561,16 @@ Directory& AddDirectory(std::string parentDirPath, const char* dirName)
 	newEntry.INODE_NUMBER = WriteDirectoryToFS(newDir);
 
 
-	/*if ( parentDir.HEADER.NUMBER == 0)
+	if ( parentDir.HEADER.NUMBER == 0)
 	{
-	parentDir.ENTRIES = new DirEntry[1];
-	}*/
+		parentDir.ENTRIES = new DirEntry[1];
+	}
 	parentDir.HEADER.NUMBER++;
-	//realloc( parentDir.ENTRIES, (parentDir.HEADER.NUMBER) * sizeof(DirEntry));
 	parentDir.ENTRIES[parentDir.HEADER.NUMBER-1] = newEntry;
 
 	std::fstream file("testfile.bin", std::fstream::out | std::fstream::binary | std::fstream::in );
 	UpdateDirectory( file, parentDir, parentInode);
 	file.close();
-	delete [] parentDir.ENTRIES;
 	return newDir;
 }
 
@@ -617,7 +610,6 @@ void RemoveEntry(Inode& inode, std::fstream& file, SuperBlock& sb)
 			break;
 		}
 	}
-	WriteInode(NULL_INODE, tmpInode.NUMBER, file);
 }
 
 void RemoveDir(Directory& dir, Inode& dirInode, SuperBlock& sb, std::fstream& file)
@@ -634,9 +626,6 @@ void RemoveDir(Directory& dir, Inode& dirInode, SuperBlock& sb, std::fstream& fi
 		}
 		else
 		{
-			Inode fileInode = ReadInode(file, dir.ENTRIES[j].INODE_NUMBER);
-			RemoveEntry(fileInode, file, sb);
-
 			/*Inode childInode = ReadInode(file, dir.ENTRIES[j].INODE_NUMBER);
 			Directory childDir = ReadDirectory(file, childInode, sb);  // readFile
 			RemoveEntry(  );*/
@@ -648,7 +637,7 @@ void RemoveDir(Directory& dir, Inode& dirInode, SuperBlock& sb, std::fstream& fi
 
 int RemoveDir(std::string& parentPath, std::string& target)
 {
-	std::string targetPath = parentPath + ( parentPath.back() == '/' ? "" : "/")  + target;
+	std::string targetPath = parentPath + "/" + target;
 
 	Directory parentDir;
 	Inode parentInode;
@@ -663,7 +652,7 @@ int RemoveDir(std::string& parentPath, std::string& target)
 	Inode targetInode;
 	GetDirByName( targetPath, targetDir, targetInode);
 
-
+	
 	for ( int i = 0; i < parentDir.HEADER.NUMBER; ++i)
 	{
 		if(!strcmp(parentDir.ENTRIES[i].ENTRY_NAME, target.c_str()))
@@ -684,66 +673,4 @@ int RemoveDir(std::string& parentPath, std::string& target)
 	UpdateDirectory(file, parentDir, parentInode);
 	file.close();
 	return 0;
-}
-
-
-void RemoveFile(std::string& filePath, std::string& parentPath)
-{
-
-	std::string parentDirPath = parentPath;
-	std::string fileName = filePath;
-
-	Directory parentDir;
-	Inode parentInode;
-	GetDirByName( parentDirPath, parentDir, parentInode);
-	Inode fileInode;
-	
-	std::fstream file("testfile.bin", std::fstream::in | 
-		std::fstream::binary | 
-		std::fstream::out );
-	for ( int i = 0; i < parentDir.HEADER.NUMBER; ++i)
-	{
-		if(!strcmp(parentDir.ENTRIES[i].ENTRY_NAME, fileName.c_str()))
-		{
-			fileInode = ReadInode(file, parentDir.ENTRIES[i].INODE_NUMBER);
-			for ( int j = i+1; j < parentDir.HEADER.NUMBER; ++j)
-			{
-				parentDir.ENTRIES[i++] = parentDir.ENTRIES[j];
-			}
-		}
-	}
-	parentDir.HEADER.NUMBER--;
-	
-	SuperBlock sb = ReadSuperBlock(file);
-	RemoveEntry(fileInode, file, sb);
-	UpdateDirectory(file, parentDir, parentInode);
-	file.close();
-}
-
-void AddFile (std::string dirPath, const char* fileName, std::stringstream& fileData)
-{
-
-	Inode fileInode, dirInode;
-	DirEntry newEntry;
-	Directory dir, newDir;
-	GetDirByName(dirPath, dir, dirInode);
-	strcpy(newEntry.ENTRY_NAME, fileName);
-	newEntry.ISFILE = 1;
-	fileData.seekg(0, std::ios_base::end);
-	newEntry.FILE_SIZE = fileData.tellg(); ///
-	fileData.seekg(0, std::ios_base::beg);
-	newEntry.INODE_NUMBER = WriteToFS(fileData);
-	newDir = dir;
-	newDir.ENTRIES = new DirEntry[dir.HEADER.NUMBER+1];
-
-	for (int i = 0; i < dir.HEADER.NUMBER; ++i)
-	{
-		newDir.ENTRIES[i] = dir.ENTRIES[i];
-	}
-	newDir.HEADER.NUMBER++;
-	newDir.ENTRIES[newDir.HEADER.NUMBER-1] = newEntry;
-	std::fstream file("testfile.bin", std::fstream::out | std::fstream::binary | std::fstream::in );
-	UpdateDirectory( file, newDir, dirInode);
-	file.close();
-	delete [] newDir.ENTRIES;
 }
