@@ -1,9 +1,9 @@
 #include <vector>
 #include "FileSystem.h"
 
-#define COMMNDS_COUNT 12
+#define COMMNDS_COUNT 13
 
-char* Commands[COMMNDS_COUNT] = {"help", "ls", "cd", "mkfile", "mkdir", "rm", "cp", "mv", "rename?", "exit", "rmfile", "cpout"};
+char* Commands[COMMNDS_COUNT] = {"help", "ls", "cd", "mkfile", "mkdir", "rm", "cp", "mv", "rename?", "exit", "rmfile", "cpout", "cpin"};
 
 int GetCommandNum(std::string command)
 {
@@ -148,6 +148,11 @@ void DirCopyOut(std::string& parentDir, std::string& target, std::string& extern
 	CopyOutDirectories(target, parentDir, externPath);
 }
 
+void DirCopyIn(std::string& parentDir, std::string& target, std::string& externPath)
+{
+	CopyInDirectories(externPath, target, parentDir);
+}
+
 void ExecuteCommand()
 {
 	std::string currentDir = "/";
@@ -206,6 +211,20 @@ void ExecuteCommand()
 					DirCopyOut(currentDir, argv[2], argv[3]);
 				}
 			}
+			break;
+		case 12:
+			if (argv[1] == "--dir" )
+			{
+				if (argv.size() != 5)
+				{
+					std::cout << "Wrong parameters!" << std::endl;
+				}
+				else
+				{
+					DirCopyIn( currentDir, argv[3], argv[2]);
+				}
+			}
+			break;
 		default:
 			if(argv[0] != "")
 				NoSuchCommand(argv[0]);
