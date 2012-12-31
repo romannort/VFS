@@ -3,7 +3,7 @@
 #include <sstream>
 #include <exception>
 #include <vector>
-
+#include <direct.h>
 #include "INode.h"
 
 unsigned long WriteDirectoryToFS(Directory& dir);
@@ -15,7 +15,6 @@ unsigned long GetDirByName(std::string dirPath, Directory& dir, Inode& dirInode)
 SuperBlock& ReadSuperBlock(std::fstream& file);
 SuperBlock& ReadSuperBlock();
 void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode);
-
 
 void WriteDataBlock(char* data, SuperBlock& sb, unsigned long data_block_number, std::fstream& FSFile, int free = 0)
 {
@@ -330,7 +329,6 @@ unsigned long GetDirByName(std::string dirPath, Directory& dir, Inode& dirInode)
 	std::vector<std::string> pathList = split(dirPath, '/');
 	pathList.erase( pathList.begin()); 
 	// Last entry in generated list - NULL
-
 	Inode rootInode = {0};
 	FSFile.seekg( superBlock.INODE_TABLE_START + sizeof(Inode));
 	FSFile.read( reinterpret_cast<char*>(&rootInode), sizeof(Inode));
@@ -488,10 +486,7 @@ void CreateNewFS()
 
 	std::cout << "Please enter size of cluster (B): ";
 	std::cin >> sBlock.CLUSTER_SIZE;
-	//	sBlock.CLUSTER_SIZE *= 1024;
 	sBlock.INODE_TABLE_START = sizeof(SuperBlock);
-	//	std::cout << "Please enter start size of node table(kB): ";
-	//	std::cin >> sBlock.INODE_TABLE_SIZE;
 	sBlock.INODE_TABLE_SIZE = (long)(sBlock.MAX_SIZE * 0.125);
 
 	Inode NullNode = Inode();
@@ -583,27 +578,17 @@ Directory& AddDirectory(std::string parentDirPath, const char* dirName)
 	Inode parentInode;
 	Directory parentDir;
 	GetDirByName(parentDirPath, parentDir, parentInode);
-
 	Directory newDir;
 	newDir.HEADER.NUMBER = 0;
 	memset(newDir.HEADER.NAME, 0, 16);
 	strcpy(newDir.HEADER.NAME, dirName);
-
 	DirEntry newEntry;
 	memset(newEntry.ENTRY_NAME, 0, 16);
 	strcpy(newEntry.ENTRY_NAME, dirName);
 	newEntry.ISFILE = 0;
 	newEntry.INODE_NUMBER = WriteDirectoryToFS(newDir);
-
-
-	/*if ( parentDir.HEADER.NUMBER == 0)
-	{
-	parentDir.ENTRIES = new DirEntry[1];
-	}*/
 	parentDir.HEADER.NUMBER++;
-	//realloc( parentDir.ENTRIES, (parentDir.HEADER.NUMBER) * sizeof(DirEntry));
 	parentDir.ENTRIES[parentDir.HEADER.NUMBER-1] = newEntry;
-
 	std::fstream file("testfile.bin", std::fstream::out | std::fstream::binary | std::fstream::in );
 	UpdateDirectory( file, parentDir, parentInode);
 	file.close();
@@ -664,10 +649,6 @@ void RemoveDir(Directory& dir, Inode& dirInode, SuperBlock& sb, std::fstream& fi
 		{
 			Inode fileInode = ReadInode(file, dir.ENTRIES[j].INODE_NUMBER);
 			RemoveEntry(fileInode, file, sb);
-
-			/*Inode childInode = ReadInode(file, dir.ENTRIES[j].INODE_NUMBER);
-			Directory childDir = ReadDirectory(file, childInode, sb);  // readFile
-			RemoveEntry(  );*/
 		}
 	}
 	RemoveEntry( dirInode, file, sb);
@@ -746,6 +727,52 @@ void RemoveFile(std::string& filePath, std::string& parentPath)
 	UpdateDirectory(file, parentDir, parentInode);
 	file.close();
 }
+
+// recursive copy dir tree to extern disk
+void RecursiveCopyOut(std::string& externPath, Inode& inode, Directory& dir, std::fstream& file, SuperBlock& sb)
+{
+	mkdir(externPath.c_str());
+
+	for ( int i = 0; i < dir.HEADER.NUMBER; ++i)
+	{
+		Inode tmpInode = ReadInode(file, dir.ENTRIES[i].INODE_NUMBER);
+		if ( dir.ENTRIES[i].ISFILE ==  0 ) // dir
+		{
+			Directory tmpDir = ReadDirectory( file, tmpInode, sb);
+			RecursiveCopyOut( externPath + "\\" + dir.ENTRIES[i].ENTRY_NAME,  tmpInode, tmpDir, file ,sb);
+		}
+		else
+		{
+			// copy file 
+		}
+	}
+}
+
+
+
+int CopyOutDirectories(std::string& dirToCopy,  std::string& parentPath, std::string& externPath)
+{
+	std::string targetPath = parentPath + ( parentPath.back() == '/' ? "" : "/")  + dirToCopy;
+	Directory parentDir;
+	Inode parentInode;
+	GetDirByName( parentPath, parentDir, parentInode);
+
+	if ( FindEntryInodeNumber(parentDir, dirToCopy.c_str())  == 0)
+	{
+		return 1;
+	}
+	Directory dir;
+	Inode  tocopyInode;
+	GetDirByName( targetPath, dir, tocopyInode);
+
+	std::fstream file("testfile.bin", std::fstream::in | 
+		std::fstream::binary | 
+		std::fstream::out );
+	SuperBlock sb = ReadSuperBlock(file);
+	externPath = externPath + ( externPath.back() == '\\' ? "" : "\\")  + dirToCopy;
+	RecursiveCopyOut(externPath, tocopyInode, dir, file, sb);
+}
+
 
 void AddFile (std::string dirPath, const char* fileName, std::stringstream& fileData)
 {

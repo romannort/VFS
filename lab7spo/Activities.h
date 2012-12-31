@@ -1,9 +1,9 @@
 #include <vector>
 #include "FileSystem.h"
 
-#define COMMNDS_COUNT 11
+#define COMMNDS_COUNT 12
 
-char* Commands[COMMNDS_COUNT] = {"help", "ls", "cd", "mkfile", "mkdir", "rm", "cp", "mv", "rename?", "exit", "rmfile"};
+char* Commands[COMMNDS_COUNT] = {"help", "ls", "cd", "mkfile", "mkdir", "rm", "cp", "mv", "rename?", "exit", "rmfile", "cpout"};
 
 int GetCommandNum(std::string command)
 {
@@ -65,6 +65,7 @@ std::string ChangeDirectory(std::string curDir, std::string path)						//3
 	else
 		return path;
 }
+
 void AddNewFile(std::string currentDir, std::vector<std::string> argv)  // пока что какашка, пишем test.txt в нашу FS           
 {
 
@@ -142,6 +143,11 @@ void RemoveFileCommand(std::string& command, std::string& currentDir)
 	RemoveFile(command, currentDir);
 }
 
+void DirCopyOut(std::string& parentDir, std::string& target, std::string& externPath)
+{
+	CopyOutDirectories(target, parentDir, externPath);
+}
+
 void ExecuteCommand()
 {
 	std::string currentDir = "/";
@@ -188,7 +194,18 @@ void ExecuteCommand()
 		case 10:
 				RemoveFileCommand(argv[1], currentDir);
 				break;
-			
+		case 11:
+			if (argv[1] == "--dir" )
+			{
+				if (argv.size() != 5)
+				{
+					std::cout << "Wrong parameters!" << std::endl;
+				}
+				else
+				{
+					DirCopyOut(currentDir, argv[2], argv[3]);
+				}
+			}
 		default:
 			if(argv[0] != "")
 				NoSuchCommand(argv[0]);
