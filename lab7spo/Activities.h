@@ -255,6 +255,7 @@ void ExecuteCommand()
 			case 10:
 				RemoveFileCommand(argv[1], currentDir);
 				break;
+			case 11:
 			if (argv[1] == "--dir" )
 			{
 				if (argv.size() != 5)

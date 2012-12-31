@@ -794,7 +794,7 @@ std::stringstream& ReadFileToStream( std::fstream& file)
 	return str;
 }
 
-void RecursiveCopyIn(std::string& outPath, /*std::fstream& file, SuperBlock& sb, Inode& node, Directory& dir,*/ std::string localPath )
+void RecursiveCopyIn(std::string& outPath, std::string localPath )
 {
 
 	DIR *dirstruct = opendir(outPath.c_str());
@@ -806,19 +806,12 @@ void RecursiveCopyIn(std::string& outPath, /*std::fstream& file, SuperBlock& sb,
 			if (strcmp(entry->d_name, "..") && strcmp(entry->d_name, "."))
 			{
 				Directory subdir =  AddDirectory(localPath, entry->d_name);
-				RecursiveCopyIn( outPath + "\\" + entry->d_name, /*file, sb, , subdir,*/ localPath + "/" + subdir.HEADER.NAME);
+				RecursiveCopyIn( outPath + "\\" + entry->d_name, localPath + "/" + subdir.HEADER.NAME);
 			}
 		}
 		else
 		{
-			AddNewFile( localPath, outPath + "\\" + entry->d_name, std::string(entry->d_name));
-			/*std::fstream subfile( outPath + "\\" + entry->d_name, std::fstream::binary | std::fstream::in );
-			if ( !subfile.is_open())
-			{
-				throw std::exception("Cant open extern file for reading.");
-			}
-			AddFile(localPath, entry->d_name,ReadFileToStream( subfile ));
-			subfile.close();*/
+			AddNewFile( localPath, std::string(entry->d_name), outPath + "\\" + entry->d_name);
 		}
         entry = readdir(dirstruct);
     }
@@ -856,28 +849,25 @@ int CopyInDirectories(std::string& externDirPath, std::string& localDirPath, std
 
 void AddFile (std::string dirPath, const char* fileName, std::stringstream& fileData)
 {
-
 	Inode fileInode, dirInode;
 	DirEntry newEntry;
-	Directory dir, newDir;
+	Directory dir;
 	GetDirByName(dirPath, dir, dirInode);
+
+
+
 	strcpy(newEntry.ENTRY_NAME, fileName);
 	newEntry.ISFILE = 1;
 	fileData.seekg(0, std::ios_base::end);
 	newEntry.FILE_SIZE = fileData.tellg(); ///
 	fileData.seekg(0, std::ios_base::beg);
 	newEntry.INODE_NUMBER = WriteToFS(fileData);
-	newDir = dir;
-	
-	for (int i = 0; i < dir.HEADER.NUMBER; ++i)
-	{
-		newDir.ENTRIES[i] = dir.ENTRIES[i];
-	}
-	newDir.HEADER.NUMBER++;
-	newDir.ENTRIES[newDir.HEADER.NUMBER-1] = newEntry;
+	dir.HEADER.NUMBER++;
+	dir.ENTRIES[dir.HEADER.NUMBER-1] = newEntry;
 	std::fstream file("testfile.bin", std::fstream::out | std::fstream::binary | std::fstream::in );
-	UpdateDirectory( file, newDir, dirInode);
+	UpdateDirectory( file, dir, dirInode);
 	file.close();
+	delete [] dir.ENTRIES;
 }
 
 void AddNewFile(std::string currentDir, std::string& fileName, std::string& externFileName)  // пока что какашка, пишем test.txt в нашу FS           
@@ -890,4 +880,9 @@ void AddNewFile(std::string currentDir, std::string& fileName, std::string& exte
 		std::ostreambuf_iterator<char>(fileStr));
 	AddFile(currentDir, fileName.c_str(), fileStr);                                                                     //
 	file.close();
+}
+
+void CopyToCopy()
+{
+
 }
