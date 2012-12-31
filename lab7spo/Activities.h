@@ -20,17 +20,33 @@ int GetCommandNum(std::string command)
 void PrintHelp()							//1
 {
 	puts("\n\nUsage:");
-	puts("\thelp - ");
-	puts("\tls - ");
-	puts("\tcd - ");
-	puts("\tmkfile - ");
-	puts("\tmkdir - ");
-	puts("\trm - ");
-	puts("\t rmfile [filename] ");
-	puts("\tcp - ");
-	puts("\tmv - ");
-	puts("\trename - ");
-	puts("\texit - ");
+	puts("\thelp                     - show this tip");
+	puts("\tls                       - show current dirrectory content");
+	puts("\tcd [directory]           - change current directory");
+	puts("\tmkfile [filename]        - create a file");
+	puts("\tmkdir [dirname]          - create a directory");
+	puts("\trmdir [dirname]          - recursive remove directory");
+	puts("\trmfile [filename]        - remove file");
+	puts("\tcp [source][destination] - copy file or folder to destination directory");
+	puts("\tmv [source][destination] - move file or folder to destination directory");
+	puts("\trnmdir [goal][newname]   - rename a directory");
+	puts("\texit                     - exit from program");
+}
+
+std::string GetParent(std::string path)
+{
+	size_t found;
+	found = path.find_last_of("/");
+	if(found == 0)
+		return "/";
+	return path.substr(0,found);
+}
+
+std::string GetLastFromPath(std::string path)
+{
+	size_t found;
+	found = path.find_last_of("/");
+	return path.substr(found+1);
 }
 
 void ShowDirectory(std::string currentDir)						//2
@@ -60,6 +76,23 @@ std::string ChangeDirectory(std::string curDir, std::string path)						//3
 	Inode dirInode;
 
 	path = AbsolutePath(curDir, path);
+	
+	Inode destInode;
+	Directory destDir;
+	DirEntry toEdit;
+	GetDirByName(path, destDir, destInode);
+
+	for ( int i = 0; i < destDir.HEADER.NUMBER; ++i)
+	{
+		if(!strcmp(destDir.ENTRIES[i].ENTRY_NAME, GetLastFromPath(path).c_str()))
+		{
+			if(destDir.ENTRIES[i].ISFILE == true) 
+			{
+				std::cout << "Destination must be a directory\n";
+				return path;
+			}
+		}
+	}
 	if( GetDirByName(path, dir, dirInode) == -1)
 		return curDir;
 	else
@@ -78,7 +111,6 @@ void AddNewFile(std::string currentDir, std::vector<std::string> argv)  // пока 
 		std::ostreambuf_iterator<char>(fileStr));
 	AddFile(currentDir, argv[1].c_str(), fileStr);                                                                     //
 	file.close();
-	puts("\n\tFile added\n");
 }
 
 void AddNewDir(std::string currentDir, std::vector<std::string> command)							//5
@@ -98,22 +130,6 @@ void Copy()									//7
 	puts("\n\tCopying done\n");
 }
 
-std::string GetParent(std::string path)
-{
-	size_t found;
-	found = path.find_last_of("/");
-	if(found == 0)
-		return "/";
-	return path.substr(0,found);
-}
-
-std::string GetLastFromPath(std::string path)
-{
-	size_t found;
-	found = path.find_last_of("/");
-	return path.substr(found+1);
-}
-
 void Move(std::string currentDir, std::vector<std::string> command)									//8
 {
 	Directory dir;
@@ -125,12 +141,54 @@ void Move(std::string currentDir, std::vector<std::string> command)									//8
 		GetDirByName(source, dir, dirInode) == -1)
 		return;
 
+	Inode destInode;
+	Directory destDir;
+	DirEntry toEdit;
+	GetDirByName(GetParent(dest), destDir, destInode);
+
+	for ( int i = 0; i < destDir.HEADER.NUMBER; ++i)
+	{
+		if(!strcmp(destDir.ENTRIES[i].ENTRY_NAME, GetLastFromPath(dest).c_str()))
+		{
+			if(destDir.ENTRIES[i].ISFILE == true) 
+			{
+				std::cout << "Destination must be a directory\n";
+				return;
+			}
+		}
+	}
+
 	MoveHadler(GetParent(source), GetLastFromPath(source), dest);
 }
 
-void Rename()								//9
+void Rename(std::string dest, std::string newName)								//9
 {
-	puts("\n\tRenaming done\n");
+	Inode destInode, parentInode;
+	Directory destDir, parentDir;
+	DirEntry toEdit;
+	GetDirByName(dest, destDir, destInode);
+	GetDirByName(GetParent(dest), parentDir, parentInode);
+
+
+	for ( int i = 0; i < parentDir.HEADER.NUMBER; ++i)
+	{
+		if(!strcmp(parentDir.ENTRIES[i].ENTRY_NAME, GetLastFromPath(dest).c_str()))
+		{
+			toEdit = parentDir.ENTRIES[i];
+			break;
+		}
+	}
+
+	if(!NameIsValid(GetParent(dest), newName, toEdit.ISFILE))
+		return;
+
+	strcpy(destDir.HEADER.NAME, newName.c_str());
+	strcpy(toEdit.ENTRY_NAME, newName.c_str());
+
+	std::fstream file("testfile.bin", std::fstream::out | std::fstream::binary | std::fstream::in );
+	UpdateDirectory( file, parentDir, parentInode);
+	UpdateDirectory( file, destDir, destInode);
+	file.close();
 }
 
 void NoSuchCommand(std::string command)
@@ -165,41 +223,38 @@ void ExecuteCommand()
 		argv = split(command, ' ');
 		switch(GetCommandNum(argv[0]))
 		{
-		case 0:
-			PrintHelp();
-			break;
-		case 1:
-			ShowDirectory(currentDir);
-			break;
-		case 2:
-			currentDir = ChangeDirectory(currentDir, argv[1]);
-			break;
-		case 3:
-
-			AddNewFile(currentDir, argv);
-
-			break;
-		case 4:
-			AddNewDir(currentDir, argv);
-			break;
-		case 5:
-			Remove(currentDir, argv);
-			break;
-		case 6:
-			Copy();
-			break;
-		case 7:
-			Move(currentDir, argv);
-			break;
-		case 8:
-			Rename();
-			break;
-		case 9:
-			return;
-		case 10:
+			case 0:
+				PrintHelp();
+				break;
+			case 1:
+				ShowDirectory(currentDir);
+				break;
+			case 2:
+				currentDir = ChangeDirectory(currentDir, argv[1]);
+				break;
+			case 3:
+				AddNewFile(currentDir, argv);
+				break;
+			case 4:
+				AddNewDir(currentDir, argv);
+				break;
+			case 5:
+				Remove(currentDir, argv);
+				break;
+			case 6:
+				Copy();
+				break;
+			case 7:
+				Move(currentDir, argv);
+				break;
+			case 8:
+				Rename(AbsolutePath(currentDir, argv[1]), argv[2]);
+				break;
+			case 9:
+				return;
+			case 10:
 				RemoveFileCommand(argv[1], currentDir);
 				break;
-		case 11:
 			if (argv[1] == "--dir" )
 			{
 				if (argv.size() != 5)
@@ -225,10 +280,10 @@ void ExecuteCommand()
 				}
 			}
 			break;
-		default:
-			if(argv[0] != "")
-				NoSuchCommand(argv[0]);
-			break;
+			default:
+				if(argv[0] != "")
+					NoSuchCommand(argv[0]);
+				break;
 		}
 	}
 }
