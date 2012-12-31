@@ -84,6 +84,22 @@ void Copy()									//7
 	puts("\n\tCopying done\n");
 }
 
+std::string GetParent(std::string path)
+{
+	size_t found;
+	found = path.find_last_of("/");
+	if(found == 0)
+		return "/";
+	return path.substr(0,found);
+}
+
+std::string GetLastFromPath(std::string path)
+{
+	size_t found;
+	found = path.find_last_of("/");
+	return path.substr(found+1);
+}
+
 void Move(std::string currentDir, std::vector<std::string> command)									//8
 {
 	Directory dir;
@@ -95,7 +111,7 @@ void Move(std::string currentDir, std::vector<std::string> command)									//8
 	   GetDirByName(source, dir, dirInode) == -1)
 	   return;
 
-	//MoveHadlers
+	MoveHadler(GetParent(source), GetLastFromPath(source), dest);
 //	puts("\n\tMoving done\n");
 }
 

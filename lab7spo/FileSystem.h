@@ -74,8 +74,6 @@ unsigned long WriteToFS(std::stringstream& str)
 	return inode_numbers.front();
 }
 
-
-// ??
 Inode& WriteToDirectory(char* dirPath, DirEntry& newEntry)
 {
 	Inode dirInode;
@@ -136,13 +134,6 @@ unsigned long WriteDirectoryToFS(Directory& dir)
 	}
 	return WriteToFS(str);
 }
-
-//void WriteInodeToFS(Inode& node, unsigned int cluster_size, unsigned long offset)
-//{
-//	std::stringstream str(std::stringstream::in | std::stringstream::out);
-//	str.write( reinterpret_cast<char*>(&node), sizeof(node));
-//	WriteToFS(str);
-//}
 
 void WriteEmptyPlaces(unsigned long free_space, unsigned int cluster_size)
 {
@@ -465,10 +456,36 @@ void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode)
 	WriteInode(tmpInode, tmpInode.NUMBER, file); //?
 }
 
-//void MoveHadlers()
-//{
-//
-//}
+void MoveHadler(std::string sourceParent, std::string source, std::string dest)
+{
+	Directory sourceDir, destDir;
+	Inode sourceInode, destInode;
+	GetDirByName(sourceParent, sourceDir, sourceInode);
+	GetDirByName(dest, destDir, destInode);
+	DirEntry toMove;
+
+	for ( int i = 0; i < sourceDir.HEADER.NUMBER; ++i)
+	{
+		if(!strcmp(sourceDir.ENTRIES[i].ENTRY_NAME, source.c_str()))
+		{
+			toMove = sourceDir.ENTRIES[i];
+			for ( int j = i+1; j < sourceDir.HEADER.NUMBER; ++j)
+			{
+				sourceDir.ENTRIES[i++] = sourceDir.ENTRIES[j];
+			}
+		}
+	}
+	sourceDir.HEADER.NUMBER--;
+	destDir.HEADER.NUMBER++;
+	destDir.ENTRIES[destDir.HEADER.NUMBER-1] = toMove;
+		
+	std::fstream file("testfile.bin", std::fstream::in | 
+									  std::fstream::binary | 
+									  std::fstream::out );
+	UpdateDirectory(file, sourceDir, sourceInode);
+	UpdateDirectory(file, destDir, destInode);
+	file.close();
+}
 
 void CreateNewFS()
 {
@@ -578,8 +595,6 @@ Directory& AddDirectory(std::string parentDirPath, const char* dirName)
 	file.close();
 	return newDir;
 }
-
-
 
 void UnReadDataBlock(std::fstream& file, unsigned long datablock_number, SuperBlock& sb)
 {
