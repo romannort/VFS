@@ -3,7 +3,7 @@
 
 #define COMMNDS_COUNT 13
 
-char* Commands[COMMNDS_COUNT] = {"help", "ls", "cd", "mkfile", "mkdir", "rm", "cp", "mv", "rename?", "exit", "rmfile", "cpout", "cpin"};
+char* Commands[COMMNDS_COUNT] = {"help", "ls", "cd", "mkfile", "mkdir", "rmdir", "cp", "mv", "rename?", "exit", "rmfile", "cpout", "cpin"};
 
 int GetCommandNum(std::string command)
 {
@@ -20,7 +20,7 @@ int GetCommandNum(std::string command)
 void PrintHelp()							//1
 {
 	puts("\n\nUsage:");
-	puts("\thelp                     - show this tip");
+	puts("\thelp                     - show this help");
 	puts("\tls                       - show current dirrectory content");
 	puts("\tcd [directory]           - change current directory");
 	puts("\tmkfile [filename]        - create a file");
@@ -28,6 +28,8 @@ void PrintHelp()							//1
 	puts("\trmdir [dirname]          - recursive remove directory");
 	puts("\trmfile [filename]        - remove file");
 	puts("\tcp [source][destination] - copy file or folder to destination directory");
+	puts("\tcpin  (--dir)[source][destination] - recursive copy from extern disk to local");
+	puts("\tcpout (--dir)[source][destination] - recursive copy from local to extern");
 	puts("\tmv [source][destination] - move file or folder to destination directory");
 	puts("\trnmdir [goal][newname]   - rename a directory");
 	puts("\texit                     - exit from program");
@@ -76,7 +78,7 @@ std::string ChangeDirectory(std::string curDir, std::string path)						//3
 	Inode dirInode;
 
 	path = AbsolutePath(curDir, path);
-	
+
 	Inode destInode;
 	Directory destDir;
 	DirEntry toEdit;
@@ -101,13 +103,10 @@ std::string ChangeDirectory(std::string curDir, std::string path)						//3
 
 void AddNewFile(std::string currentDir, std::vector<std::string> argv)  // пока что какашка, пишем test.txt в нашу FS           
 {
-
 	std::fstream file("test.txt", std::fstream::out | std::fstream::binary | std::fstream::in );    
 	std::stringstream fileStr(std::stringstream::in | std::stringstream::out);
 	copy(std::istreambuf_iterator<char>(file),
-
 		std::istreambuf_iterator<char>(),
-
 		std::ostreambuf_iterator<char>(fileStr));
 	AddFile(currentDir, argv[1].c_str(), fileStr);                                                                     //
 	file.close();
@@ -125,8 +124,14 @@ void Remove(std::string currentDir, std::vector<std::string> command)
 	RemoveDir(currentDir, command[1]);
 }
 
-void Copy()									//7
+void Copy(std::string& currentDir, std::string& source, std::string& target)                                               
 {
+
+	std::stringstream fileStr(std::stringstream::in | std::stringstream::out);
+	if (ReadFile(currentDir, source.c_str(), fileStr) != -1)
+	{
+		AddFile(target, source.c_str(), fileStr);
+	}
 	puts("\n\tCopying done\n");
 }
 
@@ -223,39 +228,39 @@ void ExecuteCommand()
 		argv = split(command, ' ');
 		switch(GetCommandNum(argv[0]))
 		{
-			case 0:
-				PrintHelp();
-				break;
-			case 1:
-				ShowDirectory(currentDir);
-				break;
-			case 2:
-				currentDir = ChangeDirectory(currentDir, argv[1]);
-				break;
-			case 3:
-				AddNewFile(currentDir, argv);
-				break;
-			case 4:
-				AddNewDir(currentDir, argv);
-				break;
-			case 5:
-				Remove(currentDir, argv);
-				break;
-			case 6:
-				Copy();
-				break;
-			case 7:
-				Move(currentDir, argv);
-				break;
-			case 8:
-				Rename(AbsolutePath(currentDir, argv[1]), argv[2]);
-				break;
-			case 9:
-				return;
-			case 10:
-				RemoveFileCommand(argv[1], currentDir);
-				break;
-			case 11:
+		case 0:
+			PrintHelp();
+			break;
+		case 1:
+			ShowDirectory(currentDir);
+			break;
+		case 2:
+			currentDir = ChangeDirectory(currentDir, argv[1]);
+			break;
+		case 3:
+			AddNewFile(currentDir, argv);
+			break;
+		case 4:
+			AddNewDir(currentDir, argv);
+			break;
+		case 5:
+			Remove(currentDir, argv);
+			break;
+		case 6:
+			Copy(currentDir, argv[1], argv[2]);
+			break;
+		case 7:
+			Move(currentDir, argv);
+			break;
+		case 8:
+			Rename(AbsolutePath(currentDir, argv[1]), argv[2]);
+			break;
+		case 9:
+			return;
+		case 10:
+			RemoveFileCommand(argv[1], currentDir);
+			break;
+		case 11:
 			if (argv[1] == "--dir" )
 			{
 				if (argv.size() != 5)
@@ -266,6 +271,10 @@ void ExecuteCommand()
 				{
 					DirCopyOut(currentDir, argv[2], argv[3]);
 				}
+			}
+			else
+			{
+				CopyFromFS(currentDir, argv);
 			}
 			break;
 		case 12:
@@ -281,10 +290,10 @@ void ExecuteCommand()
 				}
 			}
 			break;
-			default:
-				if(argv[0] != "")
-					NoSuchCommand(argv[0]);
-				break;
+		default:
+			if(argv[0] != "")
+				NoSuchCommand(argv[0]);
+			break;
 		}
 	}
 }

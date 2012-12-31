@@ -19,6 +19,8 @@ SuperBlock& ReadSuperBlock();
 void UpdateDirectory(std::fstream& file, Directory& dir, Inode& dirInode);
 void AddFile (std::string dirPath, const char* fileName, std::stringstream& fileData);
 void AddNewFile(std::string currentDir, std::string& fileName, std::string& externFileName);
+unsigned long ReadFile (std::string dirPath, std::string fileName, std::stringstream& fileStr);
+unsigned long ReadFile (Directory dir, char* fileName, std::stringstream& fileStr);
 // -----------------------------------------------------------------------
 
 void WriteDataBlock(char* data, SuperBlock& sb, unsigned long data_block_number, std::fstream& FSFile, int free = 0)
@@ -475,10 +477,10 @@ void MoveHadler(std::string sourceParent, std::string source, std::string dest)
 	sourceDir.HEADER.NUMBER--;
 	destDir.HEADER.NUMBER++;
 	destDir.ENTRIES[destDir.HEADER.NUMBER-1] = toMove;
-		
+
 	std::fstream file("testfile.bin", std::fstream::in | 
-									  std::fstream::binary | 
-									  std::fstream::out );
+		std::fstream::binary | 
+		std::fstream::out );
 	UpdateDirectory(file, sourceDir, sourceInode);
 	UpdateDirectory(file, destDir, destInode);
 	file.close();
@@ -527,24 +529,24 @@ bool NameIsValid(std::string path, std::string name, bool isFile)
 {
 	for(int i = 0; i < name.length(); i++)
 		if((name[i] > '9' || name[i] < '0') &&
-		   (name[i] > 'Z' || name[i] < 'A') &&	
-		   (name[i] > 'z' || name[i] < 'a'))
+			(name[i] > 'Z' || name[i] < 'A') &&	
+			(name[i] > 'z' || name[i] < 'a'))
 		{
 			std::cout << "Directory name must not contain any characters except A-Z, a-z, 0-9!\n\n";
 			return false;
 		}
-	Directory dir;
-	Inode dirInode;
-	GetDirByName(path, dir, dirInode);
-	for ( int i = 0; i < dir.HEADER.NUMBER; ++i)
-	{
-		if(!strcmp(dir.ENTRIES[i].ENTRY_NAME, name.c_str()))
+		Directory dir;
+		Inode dirInode;
+		GetDirByName(path, dir, dirInode);
+		for ( int i = 0; i < dir.HEADER.NUMBER; ++i)
 		{
-			std::cout << "Such directory is already exist!\n\n";
-			return false;
+			if(!strcmp(dir.ENTRIES[i].ENTRY_NAME, name.c_str()))
+			{
+				std::cout << "Such directory is already exist!\n\n";
+				return false;
+			}
 		}
-	}
-	return true;
+		return true;
 }
 
 void InitFS()
@@ -713,7 +715,7 @@ void RemoveFile(std::string& filePath, std::string& parentPath)
 	Inode parentInode;
 	GetDirByName( parentDirPath, parentDir, parentInode);
 	Inode fileInode;
-	
+
 	std::fstream file("testfile.bin", std::fstream::in | 
 		std::fstream::binary | 
 		std::fstream::out );
@@ -729,7 +731,7 @@ void RemoveFile(std::string& filePath, std::string& parentPath)
 		}
 	}
 	parentDir.HEADER.NUMBER--;
-	
+
 	SuperBlock sb = ReadSuperBlock(file);
 	RemoveEntry(fileInode, file, sb);
 	UpdateDirectory(file, parentDir, parentInode);
@@ -740,7 +742,7 @@ void RemoveFile(std::string& filePath, std::string& parentPath)
 void RecursiveCopyOut(std::string& externPath, Inode& inode, Directory& dir, std::fstream& file, SuperBlock& sb)
 {
 	mkdir(externPath.c_str());
-
+	std::stringstream fileStr(std::stringstream::in | std::stringstream::out);
 	for ( int i = 0; i < dir.HEADER.NUMBER; ++i)
 	{
 		Inode tmpInode = ReadInode(file, dir.ENTRIES[i].INODE_NUMBER);
@@ -751,7 +753,14 @@ void RecursiveCopyOut(std::string& externPath, Inode& inode, Directory& dir, std
 		}
 		else
 		{
-			// copy file 
+			if (ReadFile(dir, dir.ENTRIES[i].ENTRY_NAME, fileStr) != -1)
+			{
+				std::fstream file((externPath+"\\"+dir.ENTRIES[i].ENTRY_NAME).c_str(), std::fstream::out | std::fstream::binary );
+				std::copy(std::istreambuf_iterator<char>(fileStr),
+						std::istreambuf_iterator<char>(),
+						std::ostreambuf_iterator<char>(file));
+				file.close();
+			}
 		}
 	}
 }
@@ -798,9 +807,9 @@ void RecursiveCopyIn(std::string& outPath, std::string localPath )
 {
 
 	DIR *dirstruct = opendir(outPath.c_str());
-    struct dirent *entry = readdir(dirstruct);
-    while (entry != NULL)
-    {
+	struct dirent *entry = readdir(dirstruct);
+	while (entry != NULL)
+	{
 		if (entry->d_type == DT_DIR)
 		{
 			if (strcmp(entry->d_name, "..") && strcmp(entry->d_name, "."))
@@ -813,9 +822,9 @@ void RecursiveCopyIn(std::string& outPath, std::string localPath )
 		{
 			AddNewFile( localPath, std::string(entry->d_name), outPath + "\\" + entry->d_name);
 		}
-        entry = readdir(dirstruct);
-    }
-    closedir(dirstruct);
+		entry = readdir(dirstruct);
+	}
+	closedir(dirstruct);
 }
 
 int CopyInDirectories(std::string& externDirPath, std::string& localDirPath, std::string& localParentPath)
@@ -870,7 +879,7 @@ void AddFile (std::string dirPath, const char* fileName, std::stringstream& file
 	delete [] dir.ENTRIES;
 }
 
-void AddNewFile(std::string currentDir, std::string& fileName, std::string& externFileName)  // пока что какашка, пишем test.txt в нашу FS           
+void AddNewFile(std::string currentDir, std::string& fileName, std::string& externFileName)
 {
 
 	std::fstream file(externFileName.c_str(), std::fstream::out | std::fstream::binary | std::fstream::in );    
@@ -882,7 +891,130 @@ void AddNewFile(std::string currentDir, std::string& fileName, std::string& exte
 	file.close();
 }
 
-void CopyToCopy()
-{
+//void RecursiveCopyInside(std::string& toPath, Inode& inode, Directory& dir, std::fstream& file, SuperBlock& sb)
+//{
+//	//mkdir(externPath.c_str());
+//
+//	Directory copydir = AddDirectory(toPath, 
+//
+//	for ( int i = 0; i < dir.HEADER.NUMBER; ++i)
+//	{
+//		Inode tmpInode = ReadInode(file, dir.ENTRIES[i].INODE_NUMBER);
+//		if ( dir.ENTRIES[i].ISFILE ==  0 ) // dir
+//		{
+//			Directory tmpDir = ReadDirectory( file, tmpInode, sb);
+//			RecursiveCopyOut( externPath + "\\" + dir.ENTRIES[i].ENTRY_NAME,  tmpInode, tmpDir, file ,sb);
+//		}
+//		else
+//		{
+//			// copy file 
+//		}
+//	}
+//}
+//
+//int CopyDirectoriesInside(std::string& dirToCopy,  std::string& parentPath, std::string& toPath)
+//{
+//	
+//	Directory parentDir;
+//	Inode parentInode;
+//	GetDirByName( parentPath, parentDir, parentInode);
+//
+//	if ( FindEntryInodeNumber(parentDir, dirToCopy.c_str())  == 0)
+//	{
+//		return 1;
+//	}
+//	Directory dir;
+//	Inode  tocopyInode;
+//	GetDirByName( targetPath, dir, tocopyInode);
+//
+//	std::fstream file("testfile.bin", std::fstream::in | 
+//		std::fstream::binary | 
+//		std::fstream::out );
+//	SuperBlock sb = ReadSuperBlock(file);
+//	externPath = externPath + ( externPath.back() == '\\' ? "" : "\\")  + dirToCopy;
+//	RecursiveCopyOut(externPath, tocopyInode, dir, file, sb);
+//}
 
+void ReadFromFS (unsigned long inode_number, unsigned long size, std::stringstream& fileStr)
+{
+	std::fstream FSFile("testfile.bin", std::fstream::in | 
+		std::fstream::out | 
+		std::fstream::binary);
+
+	SuperBlock superBlock = ReadSuperBlock(FSFile);
+
+	char *buffer = new char[superBlock.CLUSTER_SIZE - 1];
+	Inode inode = ReadInode (FSFile, inode_number);
+	unsigned long current_node_entry = 0;
+	while (inode.DATA_NUMBERS[current_node_entry] != 0)
+	{
+		memset(buffer, 0, superBlock.CLUSTER_SIZE - 1);
+		ReadDataBlock(buffer, inode.DATA_NUMBERS[current_node_entry], superBlock, FSFile);
+		if (size > superBlock.CLUSTER_SIZE - 1)
+			fileStr.write(buffer, superBlock.CLUSTER_SIZE - 1);
+		else
+		{
+			fileStr.write(buffer, size);
+			return;
+		}
+		size -= superBlock.CLUSTER_SIZE - 1;
+		current_node_entry ++;
+		if (current_node_entry == INODE_DIRECT_OFFSETS)
+		{
+			inode = ReadInode (FSFile, inode.indirect_inode);
+			current_node_entry = 0;
+		}
+	}
+	return;
+}
+
+unsigned long ReadFile (Directory dir, char* fileName, std::stringstream& fileStr)
+{
+	std::stringstream tempStr(std::stringstream::in | std::stringstream::out);
+	for (int i = 0; i < dir.HEADER.NUMBER; ++i)
+	{
+		if (!strcmp(fileName, dir.ENTRIES[i].ENTRY_NAME))
+		{
+			ReadFromFS(dir.ENTRIES[i].INODE_NUMBER, dir.ENTRIES[i].FILE_SIZE, fileStr);
+			return dir.ENTRIES[i].FILE_SIZE;
+		}
+	}
+	return -1;
+}
+
+unsigned long ReadFile (std::string dirPath, std::string fileName, std::stringstream& fileStr)
+{
+	Directory dir;
+	Inode dirInode;
+	GetDirByName (dirPath, dir, dirInode);
+	std::stringstream tempStr(std::stringstream::in | std::stringstream::out);
+	for (int i = 0; i < dir.HEADER.NUMBER; ++i)
+	{
+		if (!strcmp(fileName.c_str(), dir.ENTRIES[i].ENTRY_NAME))
+		{
+			ReadFromFS(dir.ENTRIES[i].INODE_NUMBER, dir.ENTRIES[i].FILE_SIZE, fileStr);
+
+			return dir.ENTRIES[i].FILE_SIZE;
+		}
+	}
+	return -1;
+}
+
+void CopyFromFS(std::string currentDir,  std::vector<std::string> argv)
+{
+	std::stringstream fileStr(std::stringstream::in | std::stringstream::out);
+	char buf[10] = {0};
+	if ( ReadFile(currentDir, argv[1], fileStr) != -1)
+	{
+
+		std::fstream file((argv[2]+"\\"+argv[1]).c_str(), std::fstream::out | std::fstream::binary );
+		std::copy(std::istreambuf_iterator<char>(fileStr),
+
+			std::istreambuf_iterator<char>(),
+
+			std::ostreambuf_iterator<char>(file));
+
+		file.close();
+
+	}
 }
